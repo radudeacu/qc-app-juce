@@ -75,7 +75,7 @@ namespace qc
         addAndMakeVisible (fileLabel);
 
         stemLabel.setText ("No dialogue stem", juce::dontSendNotification);
-        stemLabel.setColour (juce::Label::textColourId, glass::colour::faint (0.42f));
+        stemLabel.setColour (juce::Label::textColourId, glass::colour::faint (0.6f));
         stemLabel.setFont (glass::font (11.5f));
         addAndMakeVisible (stemLabel);
 
@@ -95,7 +95,7 @@ namespace qc
         addAndMakeVisible (graph);
 
         addAndMakeVisible (recurseToggle);
-        recurseToggle.setColour (juce::ToggleButton::textColourId, glass::colour::secondary (0.66f));
+        recurseToggle.setColour (juce::ToggleButton::textColourId, glass::colour::secondary (0.82f));
         recurseToggle.setTooltip ("Off by default: dropping a project folder should not pull in "
                                   "every bounce and stem nested underneath it");
 
@@ -684,7 +684,7 @@ namespace qc
 
         if (! hasResult)
         {
-            g.setColour (glass::colour::secondary (0.5f));
+            g.setColour (glass::colour::secondary (0.7f));
             g.setFont (glass::font (13.5f));
             g.drawText (analysisRunning ? "Analysing..." : "Nothing analysed yet",
                         area, juce::Justification::centred);
@@ -720,19 +720,19 @@ namespace qc
             // groups them, so anything heavier is noise.
             if (i > 0)
             {
-                g.setColour (juce::Colours::white.withAlpha (0.07f));
+                g.setColour (juce::Colours::white.withAlpha (0.11f));
                 g.fillRect (static_cast<float> (x), static_cast<float> (area.getY() + 18),
                             1.0f, static_cast<float> (area.getHeight() - 36));
             }
 
-            g.setColour (glass::colour::secondary (0.52f));
-            g.setFont (glass::font (10.5f, true));
+            g.setColour (glass::colour::secondary (0.72f));
+            g.setFont (glass::font (11.0f, true));
             g.drawText (juce::String (field.name).toUpperCase(),
                         cell.reduced (16, 0).withTrimmedBottom (cell.getHeight() / 2),
                         juce::Justification::bottomLeft);
 
-            g.setColour (glass::colour::text (0.95f));
-            g.setFont (glass::font (22.0f));
+            g.setColour (glass::colour::text());
+            g.setFont (glass::font (23.0f, true));
             g.drawText (field.value,
                         cell.reduced (16, 0).withTrimmedTop (cell.getHeight() / 2 - 6),
                         juce::Justification::topLeft);
@@ -805,8 +805,8 @@ namespace qc
         glass::paintPanelShadow (g, targetPanel, glass::metrics::panelRadius, 0.7f);
         glass::paintPanel (g, targetPanel, glass::Depth::recessed);
 
-        g.setColour (glass::colour::secondary (0.52f));
-        g.setFont (glass::font (10.5f, true));
+        g.setColour (glass::colour::secondary (0.72f));
+        g.setFont (glass::font (11.0f, true));
         g.drawText ("TARGETS",
                     targetPanel.toNearestInt().reduced (18, 0).withHeight (34),
                     juce::Justification::centredLeft);

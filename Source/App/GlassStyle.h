@@ -13,19 +13,21 @@ namespace qc::glass
     */
     namespace colour
     {
-        const juce::Colour backdropBase   { 0xff0a0d14 };
+        const juce::Colour backdropBase   { 0xff05070c };
 
-        const juce::Colour accent         { 0xff7c9cff };
-        const juce::Colour accentSoft     { 0x807c9cff };
+        const juce::Colour accent         { 0xff9db4ff };
+        const juce::Colour accentSoft     { 0x809db4ff };
 
-        const juce::Colour pass           { 0xff4ade80 };
-        const juce::Colour warn           { 0xfffbbf24 };
-        const juce::Colour fail           { 0xfffb7185 };
-        const juce::Colour absent         { 0xff94a3b8 };
+        // Lifted toward white from the original set: at the sizes used for a status
+        // word these needed to read at a glance, not merely be distinguishable.
+        const juce::Colour pass           { 0xff6ee79b };
+        const juce::Colour warn           { 0xffffc949 };
+        const juce::Colour fail           { 0xffff8a9b };
+        const juce::Colour absent         { 0xffb2bccb };
 
-        inline juce::Colour text (float alpha = 0.92f)      { return juce::Colours::white.withAlpha (alpha); }
-        inline juce::Colour secondary (float alpha = 0.58f) { return juce::Colours::white.withAlpha (alpha); }
-        inline juce::Colour faint (float alpha = 0.30f)     { return juce::Colours::white.withAlpha (alpha); }
+        inline juce::Colour text (float alpha = 1.0f)       { return juce::Colours::white.withAlpha (alpha); }
+        inline juce::Colour secondary (float alpha = 0.78f) { return juce::Colours::white.withAlpha (alpha); }
+        inline juce::Colour faint (float alpha = 0.52f)     { return juce::Colours::white.withAlpha (alpha); }
     }
 
     namespace metrics
@@ -62,11 +64,21 @@ namespace qc::glass
 
     /** A frosted panel: translucent fill, a hairline border, and a highlight along the
         top edge where light would catch a real pane.
+
+        The fill darkens what is behind it rather than lightening it. Tinting glass
+        white looks convincing over a photograph but it is the wrong choice here: light
+        text on a lightened panel loses most of its contrast, and the interface is
+        almost entirely light text.
     */
     void paintPanel (juce::Graphics& g,
                      juce::Rectangle<float> bounds,
                      Depth depth = Depth::raised,
                      float radius = metrics::panelRadius);
+
+    /** An inner well, darker still, for plot areas where thin traces and small axis
+        labels have to stay legible against whatever the backdrop is doing.
+    */
+    void paintWell (juce::Graphics& g, juce::Rectangle<float> bounds, float radius = 10.0f);
 
     /** Soft shadow beneath a panel. Drawn separately so a caller can skip it where
         panels butt against each other and the shadows would stack into a dark seam.

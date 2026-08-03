@@ -16,12 +16,18 @@ namespace qc
         constexpr double kMinimumSpanLu = 12.0;
         constexpr float kHeaderHeight = 20.0f;
 
-        const juce::Colour kShortTermColour { 0xff9db6ff };
-        const juce::Colour kMomentaryColour { 0x5a5eead4 };
-        const juce::Colour kBandColour { 0x304ade80 };
+        // The traces are the point of this panel, so they are the brightest thing on
+        // screen. Short-term carries the reading; momentary sits behind it as context.
+        const juce::Colour kShortTermColour { 0xffd6e2ff };
+        const juce::Colour kMomentaryColour { 0x8a5eead4 };
+        const juce::Colour kBandColour { 0x4d6ee79b };
         const juce::Colour kOverColour = glass::colour::fail;
-        const juce::Colour kGridColour { 0x18ffffff };
-        const juce::Colour kTextColour = glass::colour::secondary (0.55f);
+        const juce::Colour kGridColour { 0x26ffffff };
+        const juce::Colour kTextColour = glass::colour::secondary (0.82f);
+
+        constexpr float kShortTermThickness = 2.2f;
+        constexpr float kMomentaryThickness = 1.3f;
+        constexpr float kAxisFontHeight = 11.5f;
     }
 
     LoudnessGraph::LoudnessGraph()
@@ -124,7 +130,7 @@ namespace qc
 
     void LoudnessGraph::paintEmptyState (juce::Graphics& g)
     {
-        g.setColour (kTextColour.withAlpha (0.6f));
+        g.setColour (kTextColour.withAlpha (0.7f));
         g.setFont (glass::font (13.5f));
         g.drawText ("Loudness over time appears here once a file is analysed",
                     getLocalBounds(), juce::Justification::centred);
@@ -132,7 +138,7 @@ namespace qc
 
     void LoudnessGraph::paintGrid (juce::Graphics& g, juce::Rectangle<float> plot)
     {
-        g.setFont (glass::font (10.5f));
+        g.setFont (glass::font (kAxisFontHeight));
 
         // A gridline every 6 LU keeps the labels readable at any zoom level.
         const double step = 6.0;
@@ -151,7 +157,7 @@ namespace qc
                         juce::Justification::centredRight);
         }
 
-        g.setColour (kTextColour.withAlpha (0.5f));
+        g.setColour (kTextColour.withAlpha (0.7f));
         g.drawText ("LUFS", juce::Rectangle<float> (0.0f, plot.getBottom() + 4.0f, kAxisWidth - 8.0f, 14.0f),
                     juce::Justification::centredRight);
 
@@ -218,8 +224,8 @@ namespace qc
         g.setColour (glass::colour::pass.withAlpha (0.55f));
         g.drawHorizontalLine (juce::roundToInt (centre), plot.getX(), plot.getRight());
 
-        g.setColour (kTextColour);
-        g.setFont (glass::font (10.5f));
+        g.setColour (glass::colour::pass.withAlpha (0.95f));
+        g.setFont (glass::font (11.0f, true));
         g.drawText (juce::String (target.name) + " " + juce::String (target.integratedLufs, 1),
                     juce::Rectangle<float> (plot.getX() + 8.0f, centre + 3.0f, 220.0f, 13.0f),
                     juce::Justification::centredLeft);
@@ -286,11 +292,20 @@ namespace qc
         for (const auto& over : overs)
         {
             const float x = timeToX (over.startSeconds, plot);
-            const float width = juce::jmax (2.0f, timeToX (over.endSeconds, plot) - x);
-            g.fillRect (juce::Rectangle<float> (x, plot.getY(), width, 5.0f));
+            const float width = juce::jmax (3.0f, timeToX (over.endSeconds, plot) - x);
+
+            g.setColour (kOverColour);
+            g.fillRect (juce::Rectangle<float> (x, plot.getY(), width, 7.0f));
+
+            // A faint column down the plot so the position is findable against the
+            // trace, not just marked at the very top edge.
+            g.setColour (kOverColour.withAlpha (0.22f));
+            g.fillRect (juce::Rectangle<float> (x, plot.getY(), width, plot.getHeight()));
         }
 
-        g.setFont (glass::font (10.5f, true));
+        g.setColour (kOverColour);
+
+        g.setFont (glass::font (11.0f, true));
         g.drawText (juce::String (overs.size()) + (overs.size() == 1 ? " TRUE-PEAK OVER" : " TRUE-PEAK OVERS"),
                     juce::Rectangle<float> (plot.getRight() - 200.0f, plot.getY() - kHeaderHeight,
                                             200.0f, 14.0f),
@@ -313,8 +328,10 @@ namespace qc
         if (plot.getWidth() <= 0.0f || plot.getHeight() <= 0.0f)
             return;
 
-        g.setColour (kTextColour.withAlpha (0.55f));
-        g.setFont (glass::font (10.5f, true));
+        glass::paintWell (g, plot.expanded (6.0f, 4.0f));
+
+        g.setColour (kTextColour.withAlpha (0.9f));
+        g.setFont (glass::font (11.0f, true));
         g.drawText ("LOUDNESS OVER TIME",
                     juce::Rectangle<float> (plot.getX(), plot.getY() - kHeaderHeight, 240.0f, 14.0f),
                     juce::Justification::centredLeft);
@@ -322,20 +339,20 @@ namespace qc
         paintTargetBand (g, plot);
         paintGrid (g, plot);
 
-        paintSeries (g, plot, analysis.loudness.momentaryLufs, 0.4, kMomentaryColour, 1.0f);
-        paintSeries (g, plot, analysis.loudness.shortTermLufs, 3.0, kShortTermColour, 1.6f);
+        paintSeries (g, plot, analysis.loudness.momentaryLufs, 0.4, kMomentaryColour, kMomentaryThickness);
+        paintSeries (g, plot, analysis.loudness.shortTermLufs, 3.0, kShortTermColour, kShortTermThickness);
 
         paintOverMarkers (g, plot);
 
         if (isMeasured (analysis.loudness.integratedLufs))
         {
             const float y = loudnessToY (analysis.loudness.integratedLufs, plot);
-            g.setColour (juce::Colours::white.withAlpha (0.75f));
+            g.setColour (juce::Colours::white.withAlpha (0.9f));
 
-            const float dashes[] = { 4.0f, 4.0f };
-            g.drawDashedLine (juce::Line<float> (plot.getX(), y, plot.getRight(), y), dashes, 2, 1.0f);
+            const float dashes[] = { 5.0f, 5.0f };
+            g.drawDashedLine (juce::Line<float> (plot.getX(), y, plot.getRight(), y), dashes, 2, 1.6f);
 
-            g.setFont (glass::font (10.5f));
+            g.setFont (glass::font (11.0f, true));
             g.drawText ("Integrated " + juce::String (analysis.loudness.integratedLufs, 1),
                         juce::Rectangle<float> (plot.getRight() - 154.0f, y - 16.0f, 150.0f, 13.0f),
                         juce::Justification::centredRight);

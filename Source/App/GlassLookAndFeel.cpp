@@ -69,9 +69,9 @@ namespace qc
                                            bool shouldDrawButtonAsHighlighted,
                                            bool)
     {
-        const auto alpha = ! button.isEnabled() ? 0.28f
+        const auto alpha = ! button.isEnabled() ? 0.34f
                          : shouldDrawButtonAsHighlighted ? 1.0f
-                                                         : 0.86f;
+                                                         : 0.94f;
 
         g.setColour (colour::text (alpha));
         g.setFont (getTextButtonFont (button, button.getHeight()));
@@ -114,8 +114,8 @@ namespace qc
             g.drawRoundedRectangle (box.reduced (0.5f), 5.0f, 1.0f);
         }
 
-        g.setColour (colour::text (on ? 0.94f : 0.62f));
-        g.setFont (font (13.0f));
+        g.setColour (colour::text (on ? 1.0f : 0.78f));
+        g.setFont (font (13.0f, on));
         g.drawText (button.getButtonText(),
                     bounds.withTrimmedLeft (boxSize + 10.0f),
                     juce::Justification::centredLeft, true);
@@ -172,8 +172,8 @@ namespace qc
     {
         const auto area = juce::Rectangle<int> (0, 0, width, height).reduced (8, 0);
 
-        g.setColour (colour::text (isMouseOver ? 0.85f : 0.55f));
-        g.setFont (font (11.0f, true));
+        g.setColour (colour::text (isMouseOver ? 1.0f : 0.78f));
+        g.setFont (font (11.5f, true));
         g.drawText (columnName.toUpperCase(), area, juce::Justification::centredLeft, true);
 
         // A sorted column earns a small caret rather than a whole different style.

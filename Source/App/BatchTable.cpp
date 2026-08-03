@@ -252,7 +252,7 @@ namespace qc
         }
         else if (rowNumber % 2 != 0)
         {
-            g.setColour (juce::Colours::white.withAlpha (0.025f));
+            g.setColour (juce::Colours::white.withAlpha (0.045f));
             g.fillRoundedRectangle (bounds.reduced (3.0f, 1.5f), 8.0f);
         }
     }
@@ -289,7 +289,7 @@ namespace qc
         {
             const auto status = getStatusForColumn (*entry, columnId);
             g.setColour (VerdictPanel::getStatusColour (status));
-            g.setFont (glass::font (11.5f, true));
+            g.setFont (glass::font (12.0f, true));
             g.drawText (text, area, juce::Justification::centredLeft, true);
             return;
         }
@@ -302,8 +302,8 @@ namespace qc
             return;
         }
 
-        g.setColour (glass::colour::text (columnId == fileColumn ? 0.9f : 0.7f));
-        g.setFont (glass::font (12.5f));
+        g.setColour (glass::colour::text (columnId == fileColumn ? 1.0f : 0.88f));
+        g.setFont (glass::font (12.5f, columnId == fileColumn));
         g.drawText (text, area, juce::Justification::centredLeft, true);
     }
 
