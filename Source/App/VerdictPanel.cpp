@@ -100,16 +100,17 @@ namespace qc
         {
             const auto checkColour = getStatusColour (check.status);
 
-            g.setColour (checkColour.withAlpha (check.status == Status::pass ? 0.45f : 0.9f));
+            g.setColour (checkColour.withAlpha (check.status == Status::pass ? 0.7f : 1.0f));
             g.fillEllipse (static_cast<float> (kPadding + 6), static_cast<float> (y + 7), 5.0f, 5.0f);
 
-            g.setColour (glass::colour::secondary (0.6f));
+            g.setColour (glass::colour::secondary (0.82f));
             g.setFont (glass::font (12.5f));
             g.drawText (check.name,
                         juce::Rectangle<int> (kPadding + 20, y, 210, kCheckHeight),
                         juce::Justification::centredLeft);
 
-            g.setColour (glass::colour::text (0.86f));
+            g.setColour (glass::colour::text (0.97f));
+            g.setFont (glass::font (12.5f, true));
             g.drawText (check.detail,
                         juce::Rectangle<int> (kPadding + 236, y, width - kPadding - 248, kCheckHeight),
                         juce::Justification::centredLeft);
@@ -122,11 +123,11 @@ namespace qc
             juce::StringArray lines;
             lines.addLines (verdict.fixHint);
 
-            g.setFont (glass::font (12.5f));
+            g.setFont (glass::font (12.5f, true));
 
             for (const auto& line : lines)
             {
-                g.setColour (glass::colour::warn.withAlpha (0.92f));
+                g.setColour (glass::colour::warn);
                 g.drawText (line,
                             juce::Rectangle<int> (kPadding + 20, y, width - kPadding - 32, kHintLineHeight),
                             juce::Justification::centredLeft);
@@ -142,7 +143,7 @@ namespace qc
     {
         if (verdicts.empty())
         {
-            g.setColour (glass::colour::secondary (0.45f));
+            g.setColour (glass::colour::secondary (0.7f));
             g.setFont (glass::font (13.0f));
             g.drawText ("Select one or more targets, then drop a file to see whether it passes.",
                         getLocalBounds().reduced (kPadding), juce::Justification::centred);

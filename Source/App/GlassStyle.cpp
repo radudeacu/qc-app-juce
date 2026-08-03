@@ -29,28 +29,42 @@ namespace qc::glass
             { 0.38f, 0.96f, 0.38f, juce::Colour (0xff28527a) }
         };
 
-        float depthFill (Depth depth)
+        /** How much the panel darkens what is behind it. */
+        float depthShade (Depth depth)
         {
             switch (depth)
             {
-                case Depth::recessed: return 0.035f;
-                case Depth::raised:   return 0.070f;
-                case Depth::floating: return 0.115f;
+                case Depth::recessed: return 0.52f;
+                case Depth::raised:   return 0.40f;
+                case Depth::floating: return 0.26f;
             }
 
-            return 0.070f;
+            return 0.40f;
+        }
+
+        /** The white lift laid over the shade, which is what still reads as glass. */
+        float depthSheen (Depth depth)
+        {
+            switch (depth)
+            {
+                case Depth::recessed: return 0.020f;
+                case Depth::raised:   return 0.045f;
+                case Depth::floating: return 0.090f;
+            }
+
+            return 0.045f;
         }
 
         float depthBorder (Depth depth)
         {
             switch (depth)
             {
-                case Depth::recessed: return 0.070f;
-                case Depth::raised:   return 0.130f;
-                case Depth::floating: return 0.200f;
+                case Depth::recessed: return 0.10f;
+                case Depth::raised:   return 0.17f;
+                case Depth::floating: return 0.26f;
             }
 
-            return 0.130f;
+            return 0.17f;
         }
 
         void overlayGrain (juce::Image& image)
@@ -99,7 +113,7 @@ namespace qc::glass
                 const auto centreY = blob.y * static_cast<float> (smallHeight);
                 const auto radius = blob.radius * longest;
 
-                juce::ColourGradient gradient (blob.colour.withAlpha (0.55f), centreX, centreY,
+                juce::ColourGradient gradient (blob.colour.withAlpha (0.46f), centreX, centreY,
                                                blob.colour.withAlpha (0.0f), centreX + radius, centreY,
                                                true);
 
@@ -107,11 +121,16 @@ namespace qc::glass
                 g.fillEllipse (centreX - radius, centreY - radius, radius * 2.0f, radius * 2.0f);
             }
 
-            // Darken the lower half so content there keeps its contrast.
-            juce::ColourGradient shade (juce::Colours::transparentBlack, 0.0f, 0.0f,
-                                        juce::Colours::black.withAlpha (0.45f), 0.0f,
+            // Darken towards the bottom, where the densest content sits.
+            juce::ColourGradient shade (juce::Colours::black.withAlpha (0.10f), 0.0f, 0.0f,
+                                        juce::Colours::black.withAlpha (0.60f), 0.0f,
                                         static_cast<float> (smallHeight), false);
             g.setGradientFill (shade);
+            g.fillAll();
+
+            // A flat veil over everything. The aurora is meant to be felt rather than
+            // looked at, and every panel sits on top of it.
+            g.setColour (juce::Colours::black.withAlpha (0.10f));
             g.fillAll();
         }
 
@@ -140,13 +159,16 @@ namespace qc::glass
 
     void paintPanel (juce::Graphics& g, juce::Rectangle<float> bounds, Depth depth, float radius)
     {
+        g.setColour (juce::Colours::black.withAlpha (depthShade (depth)));
+        g.fillRoundedRectangle (bounds, radius);
+
         // Vertical gradient rather than a flat wash: a real pane catches more light at
         // the top, and this is most of what separates glass from a grey rectangle.
-        const auto fill = depthFill (depth);
+        const auto sheen = depthSheen (depth);
 
-        juce::ColourGradient body (juce::Colours::white.withAlpha (fill * 1.5f),
+        juce::ColourGradient body (juce::Colours::white.withAlpha (sheen * 1.6f),
                                    bounds.getCentreX(), bounds.getY(),
-                                   juce::Colours::white.withAlpha (fill * 0.6f),
+                                   juce::Colours::white.withAlpha (sheen * 0.4f),
                                    bounds.getCentreX(), bounds.getBottom(),
                                    false);
 
@@ -162,7 +184,7 @@ namespace qc::glass
         juce::ColourGradient highlight (juce::Colours::white.withAlpha (0.0f), bounds.getX() + inset, 0.0f,
                                         juce::Colours::white.withAlpha (0.0f), bounds.getRight() - inset, 0.0f,
                                         false);
-        highlight.addColour (0.5, juce::Colours::white.withAlpha (depth == Depth::recessed ? 0.14f : 0.28f));
+        highlight.addColour (0.5, juce::Colours::white.withAlpha (depth == Depth::recessed ? 0.18f : 0.34f));
 
         g.setGradientFill (highlight);
         g.fillRect (bounds.getX() + inset, bounds.getY() + 1.0f, bounds.getWidth() - inset * 2.0f, 1.0f);
@@ -171,15 +193,27 @@ namespace qc::glass
     void paintStatusPill (juce::Graphics& g, juce::Rectangle<float> bounds, juce::Colour tint,
                           const juce::String& text)
     {
-        g.setColour (tint.withAlpha (0.16f));
+        g.setColour (juce::Colours::black.withAlpha (0.35f));
         g.fillRoundedRectangle (bounds, bounds.getHeight() * 0.5f);
 
-        g.setColour (tint.withAlpha (0.40f));
-        g.drawRoundedRectangle (bounds.reduced (0.5f), bounds.getHeight() * 0.5f, 1.0f);
+        g.setColour (tint.withAlpha (0.26f));
+        g.fillRoundedRectangle (bounds, bounds.getHeight() * 0.5f);
 
-        g.setColour (tint.brighter (0.15f));
-        g.setFont (font (bounds.getHeight() * 0.46f, true));
+        g.setColour (tint.withAlpha (0.75f));
+        g.drawRoundedRectangle (bounds.reduced (0.5f), bounds.getHeight() * 0.5f, 1.2f);
+
+        g.setColour (tint);
+        g.setFont (font (bounds.getHeight() * 0.5f, true));
         g.drawText (text, bounds, juce::Justification::centred);
+    }
+
+    void paintWell (juce::Graphics& g, juce::Rectangle<float> bounds, float radius)
+    {
+        g.setColour (juce::Colours::black.withAlpha (0.34f));
+        g.fillRoundedRectangle (bounds, radius);
+
+        g.setColour (juce::Colours::white.withAlpha (0.06f));
+        g.drawRoundedRectangle (bounds.reduced (0.5f), radius, 1.0f);
     }
 
     void paintSeparator (juce::Graphics& g, juce::Rectangle<float> bounds, float alpha)
