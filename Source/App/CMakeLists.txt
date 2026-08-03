@@ -43,6 +43,10 @@ juce_add_gui_app(QCApp
     # Derived from the product name it would contain spaces, which is not a valid ID.
     BUNDLE_ID "com.qcapp.analyser"
     VERSION ${PROJECT_VERSION}
+    # juceaide builds the .ico from this and embeds it, so the executable and the
+    # taskbar both carry it. Regenerate with the qc_makeicon target.
+    ICON_BIG "${CMAKE_SOURCE_DIR}/Resources/AppIcon.png"
+    ICON_SMALL "${CMAKE_SOURCE_DIR}/Resources/AppIcon.png"
 )
 
 target_sources(QCApp PRIVATE ${QC_APP_SOURCES} ${CMAKE_CURRENT_SOURCE_DIR}/Main.cpp)
@@ -80,6 +84,23 @@ target_link_libraries(QCApp PRIVATE
 # changes, which a screenshot of a running app cannot do repeatably.
 # ---------------------------------------------------------------------------
 option(QC_BUILD_UI_SNAPSHOT "Build the offscreen UI snapshot tool" OFF)
+
+# ---------------------------------------------------------------------------
+# qc_makeicon - regenerates Resources/AppIcon.png.
+#
+# The icon is drawn from code so it can be adjusted without a graphics editor.
+# The build consumes the committed PNG, not this tool, so it stays off by default.
+# ---------------------------------------------------------------------------
+option(QC_BUILD_ICON_TOOL "Build the app icon generator" OFF)
+
+if(QC_BUILD_ICON_TOOL)
+    juce_add_console_app(qc_makeicon PRODUCT_NAME "qc_makeicon")
+    target_sources(qc_makeicon PRIVATE ${CMAKE_SOURCE_DIR}/Tools/MakeIcon.cpp)
+    target_compile_definitions(qc_makeicon PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(qc_makeicon
+        PRIVATE juce::juce_gui_basics
+        PUBLIC juce::juce_recommended_config_flags)
+endif()
 
 if(QC_BUILD_UI_SNAPSHOT)
     juce_add_console_app(qc_uishot PRODUCT_NAME "qc_uishot")
