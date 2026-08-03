@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -R \"C:/Users/yo_ra/.claude/skills/code-project-planner\" | head -50; echo \"---PROJECT---\"; ls -a \"C:/Users/yo_ra/Documents/qc-app-juce\" 2>/dev/null | head -30)"
+    ]
+  }
+}
