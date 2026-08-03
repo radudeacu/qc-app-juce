@@ -3,6 +3,7 @@ add_executable(qc_engine_tests
     EngineTests.cpp
     VerdictTests.cpp
     JsonTests.cpp
+    PdfTests.cpp
 )
 
 target_link_libraries(qc_engine_tests PRIVATE qc_engine)
