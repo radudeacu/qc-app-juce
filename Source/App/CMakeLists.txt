@@ -29,6 +29,8 @@ target_sources(QCApp PRIVATE
     LoudnessGraph.cpp
     VerdictPanel.cpp
     MediaFoundationAudioFormat.cpp
+    BatchAnalyser.cpp
+    BatchTable.cpp
 )
 
 if(WIN32)

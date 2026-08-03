@@ -273,6 +273,11 @@ namespace qc
 
     Status overallStatus (const std::vector<TargetVerdict>& verdicts)
     {
+        // Nothing judged is not the same as nothing wrong. Starting from pass would make
+        // a batch row with no targets selected read as green.
+        if (verdicts.empty())
+            return Status::notMeasured;
+
         Status status = Status::pass;
 
         for (const auto& verdict : verdicts)

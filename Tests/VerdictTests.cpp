@@ -236,6 +236,12 @@ QC_TEST (overallStatusTakesTheWorstResult)
     check (qc::overallStatus (verdicts) == qc::Status::fail, "any failure dominates the summary");
 }
 
+QC_TEST (noTargetsSelectedIsNotMeasuredRatherThanPass)
+{
+    check (qc::overallStatus ({}) == qc::Status::notMeasured,
+           "with nothing selected there is no basis for a green result");
+}
+
 QC_TEST (notMeasuredOutranksWarnInASummary)
 {
     auto result = makeResult (-23.0, -3.0);

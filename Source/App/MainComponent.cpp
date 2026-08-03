@@ -89,6 +89,31 @@ namespace qc
 
         addAndMakeVisible (graph);
 
+        addAndMakeVisible (recurseToggle);
+        recurseToggle.setColour (juce::ToggleButton::textColourId, kMutedText);
+        recurseToggle.setTooltip ("Off by default: dropping a project folder should not pull in "
+                                  "every bounce and stem nested underneath it");
+
+        addChildComponent (batchTable);
+        batchTable.onSelectionChanged = [this] (int entryIndex) { showBatchEntry (entryIndex); };
+
+        batchAnalyser.onEntryChanged = [this] (int index)
+        {
+            batchTable.refreshRow (index);
+            updateBatchStatus();
+
+            // Show the first file that finishes, so the window is not empty while a long
+            // folder works through.
+            if (! hasResult && batchTable.getSelectedEntryIndex() < 0)
+                batchTable.refreshAll();
+        };
+
+        batchAnalyser.onFinished = [this]
+        {
+            batchTable.refreshAll();
+            updateBatchStatus();
+        };
+
         buildTargetToggles();
         restoreSelection();
 
@@ -201,6 +226,14 @@ namespace qc
         const auto* primary = getPrimaryTarget();
         graph.setTarget (primary);
 
+        if (batchMode)
+        {
+            // Judging against a different spec does not require re-reading anything: the
+            // measurements are unchanged, only what they are compared with.
+            batchAnalyser.reevaluate (getSelectedTargets());
+            batchTable.setTargets (getSelectedTargets());
+        }
+
         if (! hasResult)
         {
             verdictPanel.clear();
@@ -289,7 +322,9 @@ namespace qc
 
                                       // The stem changes what Netflix-style targets measure,
                                       // so anything already on screen is now out of date.
-                                      if (currentFile != juce::File())
+                                      if (batchMode && ! batchFiles.empty())
+                                          startBatch (batchFiles);
+                                      else if (currentFile != juce::File())
                                           startAnalysis (currentFile);
                                   });
     }
@@ -300,12 +335,16 @@ namespace qc
         stemLabel.setText ("No dialogue stem", juce::dontSendNotification);
         clearStemButton.setEnabled (false);
 
-        if (currentFile != juce::File())
+        if (batchMode && ! batchFiles.empty())
+            startBatch (batchFiles);
+        else if (currentFile != juce::File())
             startAnalysis (currentFile);
     }
 
     void MainComponent::startAnalysis (const juce::File& file)
     {
+        setBatchMode (false);
+
         if (analysisRunning)
         {
             cancelRequested = true;
@@ -381,9 +420,98 @@ namespace qc
         repaint();
     }
 
+    void MainComponent::setBatchMode (bool shouldBeBatch)
+    {
+        if (batchMode == shouldBeBatch)
+            return;
+
+        batchMode = shouldBeBatch;
+        batchTable.setVisible (batchMode);
+        resized();
+        repaint();
+    }
+
+    void MainComponent::startBatch (std::vector<juce::File> files)
+    {
+        cancelRequested = true;
+        analysisPool.removeAllJobs (true, 4000);
+
+        setBatchMode (true);
+
+        hasResult = false;
+        exportButton.setEnabled (false);
+        verdictPanel.clear();
+        graph.clearResult();
+
+        fileLabel.setText (juce::String (static_cast<int> (files.size())) + " files",
+                           juce::dontSendNotification);
+        fileLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.9f));
+
+        batchFiles = files;
+        batchAnalyser.start (std::move (files), getSelectedTargets(), dialogueStem);
+        batchTable.setSource (&batchAnalyser, getSelectedTargets());
+        updateBatchStatus();
+    }
+
+    void MainComponent::updateBatchStatus()
+    {
+        const auto total = batchAnalyser.getNumEntries();
+        const auto done = batchAnalyser.getCompletedCount();
+        const auto failed = batchAnalyser.getFailedCount();
+
+        juce::String status;
+
+        if (batchAnalyser.isRunning())
+            status = "Analysing " + juce::String (done) + " of " + juce::String (total) + "...";
+        else
+            status = juce::String (total) + " files analysed";
+
+        if (failed > 0)
+            status += "  |  " + juce::String (failed) + " could not be read";
+
+        statusLabel.setText (status, juce::dontSendNotification);
+    }
+
+    void MainComponent::showBatchEntry (int entryIndex)
+    {
+        if (entryIndex < 0 || entryIndex >= batchAnalyser.getNumEntries())
+            return;
+
+        const auto& entry = batchAnalyser.getEntry (entryIndex);
+
+        if (entry.state != BatchEntry::State::completed)
+        {
+            hasResult = false;
+            exportButton.setEnabled (false);
+            verdictPanel.clear();
+            graph.clearResult();
+
+            if (entry.state == BatchEntry::State::failed)
+                statusLabel.setText (entry.file.getFileName() + ": " + entry.errorMessage,
+                                     juce::dontSendNotification);
+
+            repaint();
+            return;
+        }
+
+        currentFile = entry.file;
+        currentResult = entry.result;
+        hasResult = true;
+        exportButton.setEnabled (true);
+
+        graph.setTarget (getPrimaryTarget());
+        graph.setResult (currentResult);
+
+        verdictPanel.setVerdicts (entry.verdicts);
+        verdictPanel.setSize (juce::jmax (10, verdictViewport.getWidth() - 8),
+                              verdictPanel.getRequiredHeight());
+
+        repaint();
+    }
+
     bool MainComponent::isInterestedInFileDrag (const juce::StringArray& files)
     {
-        return files.size() == 1;
+        return ! files.isEmpty();
     }
 
     void MainComponent::fileDragEnter (const juce::StringArray&, int, int)
@@ -402,9 +530,32 @@ namespace qc
     {
         dragHighlight = false;
         repaint();
+        openPaths (files);
+    }
 
-        if (! files.isEmpty())
-            startAnalysis (juce::File (files[0]));
+    void MainComponent::openPaths (const juce::StringArray& files)
+    {
+        auto audioFiles = collectAudioFiles (files, recurseToggle.getToggleState());
+
+        if (audioFiles.empty())
+        {
+            // Say what was wrong rather than appearing to ignore the drop.
+            statusLabel.setText (files.size() == 1
+                                     ? "Nothing here this build can decode. Supported: "
+                                           + getSupportedFormatWildcard()
+                                     : "No decodable audio found in what you dropped.",
+                                 juce::dontSendNotification);
+            return;
+        }
+
+        if (audioFiles.size() == 1)
+        {
+            setBatchMode (false);
+            startAnalysis (audioFiles.front());
+            return;
+        }
+
+        startBatch (std::move (audioFiles));
     }
 
     void MainComponent::paintSummary (juce::Graphics& g, juce::Rectangle<int> area)
@@ -511,8 +662,10 @@ namespace qc
         topBar.removeFromLeft (kGap);
         exportButton.setBounds (topBar.removeFromLeft (120).reduced (0, 8));
         topBar.removeFromLeft (kGap);
+        recurseToggle.setBounds (topBar.removeFromLeft (150).reduced (0, 8));
+        topBar.removeFromLeft (kGap);
 
-        auto labels = topBar.removeFromLeft (juce::jmax (200, topBar.getWidth() / 2));
+        auto labels = topBar.removeFromLeft (juce::jmax (140, topBar.getWidth() / 3));
         fileLabel.setBounds (labels.removeFromTop (labels.getHeight() / 2));
         stemLabel.setBounds (labels);
 
@@ -537,6 +690,14 @@ namespace qc
         bounds.removeFromTop (kSummaryHeight + kGap);
         graph.setBounds (bounds.removeFromBottom (kGraphHeight));
         bounds.removeFromBottom (kGap);
+
+        if (batchMode)
+        {
+            // The table gets the larger share: in a batch the list is the primary view
+            // and the detail below answers "why did that one fail".
+            batchTable.setBounds (bounds.removeFromTop (bounds.getHeight() * 3 / 5));
+            bounds.removeFromTop (kGap);
+        }
 
         verdictViewport.setBounds (bounds);
         verdictPanel.setSize (juce::jmax (10, verdictViewport.getWidth() - 8),

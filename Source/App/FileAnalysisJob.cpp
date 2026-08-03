@@ -4,6 +4,8 @@
 #include "../Engine/LoudnessMeter.h"
 #include "MediaFoundationAudioFormat.h"
 
+#include <algorithm>
+
 namespace qc
 {
     namespace
@@ -112,6 +114,49 @@ namespace qc
     juce::String getSupportedFormatWildcard()
     {
         return getFormatManager().getWildcardForAllFormats();
+    }
+
+    bool isSupportedAudioFile (const juce::File& file)
+    {
+        if (! file.existsAsFile())
+            return false;
+
+        // hasFileExtension wants bare extensions, while the manager hands back a
+        // wildcard like "*.wav;*.aiff".
+        return file.hasFileExtension (getSupportedFormatWildcard().removeCharacters ("*."));
+    }
+
+    std::vector<juce::File> collectAudioFiles (const juce::StringArray& paths,
+                                               bool recurseIntoSubfolders)
+    {
+        std::vector<juce::File> files;
+
+        for (const auto& path : paths)
+        {
+            const juce::File entry (path);
+
+            if (entry.isDirectory())
+            {
+                for (const auto& child : entry.findChildFiles (juce::File::findFiles,
+                                                               recurseIntoSubfolders))
+                    if (isSupportedAudioFile (child))
+                        files.push_back (child);
+            }
+            else if (isSupportedAudioFile (entry))
+            {
+                files.push_back (entry);
+            }
+        }
+
+        // Dropped folders arrive in filesystem order, which is not the order anyone
+        // reads a delivery list in.
+        std::sort (files.begin(), files.end(),
+                   [] (const juce::File& a, const juce::File& b)
+                   {
+                       return a.getFullPathName().compareNatural (b.getFullPathName()) < 0;
+                   });
+
+        return files;
     }
 
     FileAnalysisOutcome analyseFile (const juce::File& file,
