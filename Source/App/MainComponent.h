@@ -3,6 +3,7 @@
 #include "BatchAnalyser.h"
 #include "BatchTable.h"
 #include "FileAnalysisJob.h"
+#include "GlassStyle.h"
 #include "LoudnessGraph.h"
 #include "TargetLibrary.h"
 #include "VerdictPanel.h"
@@ -75,6 +76,12 @@ namespace qc
 
         void paintSummary (juce::Graphics& g, juce::Rectangle<int> area);
         void paintDropHighlight (juce::Graphics& g);
+        void paintHeader (juce::Graphics& g);
+
+        /** Rebuilt only when the size changes: the aurora is expensive enough that
+            regenerating it on every repaint would be felt.
+        */
+        juce::Image backdrop;
 
         juce::ApplicationProperties applicationProperties;
 

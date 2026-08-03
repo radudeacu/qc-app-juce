@@ -1,3 +1,4 @@
+#include "GlassLookAndFeel.h"
 #include "MainComponent.h"
 
 #include <juce_gui_extra/juce_gui_extra.h>
@@ -13,6 +14,10 @@ namespace qc
 
         void initialise (const juce::String& commandLine) override
         {
+            // Set before any window exists, so nothing is ever painted with the stock
+            // grey chrome and then repainted.
+            juce::LookAndFeel::setDefaultLookAndFeel (&lookAndFeel);
+
             mainWindow = std::make_unique<MainWindow> (getApplicationName());
 
             // Accepts paths so the app can be launched from a shell association or a
@@ -37,7 +42,9 @@ namespace qc
 
         void shutdown() override
         {
+            // Window first: it holds components that point at the look and feel.
             mainWindow = nullptr;
+            juce::LookAndFeel::setDefaultLookAndFeel (nullptr);
         }
 
         void systemRequestedQuit() override
@@ -77,6 +84,7 @@ namespace qc
             JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)
         };
 
+        GlassLookAndFeel lookAndFeel;
         std::unique_ptr<MainWindow> mainWindow;
     };
 }

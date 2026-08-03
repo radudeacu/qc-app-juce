@@ -33,6 +33,10 @@ namespace qc
         /** Index into the analyser's entries, or -1 when nothing is selected. */
         int getSelectedEntryIndex() const;
 
+        /** Selects the row showing this entry, whatever the current sort order. */
+        void selectEntry (int entryIndex);
+
+        void paint (juce::Graphics& g) override;
         void resized() override;
 
         std::function<void (int entryIndex)> onSelectionChanged;
