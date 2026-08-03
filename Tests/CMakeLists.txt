@@ -25,6 +25,8 @@ if(TARGET juce::juce_audio_formats)
         main.cpp
         FileTests.cpp
         BatchTests.cpp
+        PlaybackTests.cpp
+        ${CMAKE_SOURCE_DIR}/Source/App/PlaybackEngine.cpp
         ${CMAKE_SOURCE_DIR}/Source/App/FileAnalysisJob.cpp
         ${CMAKE_SOURCE_DIR}/Source/App/MediaFoundationAudioFormat.cpp
         ${CMAKE_SOURCE_DIR}/Source/App/BatchAnalyser.cpp
@@ -39,6 +41,7 @@ if(TARGET juce::juce_audio_formats)
         PRIVATE
             qc_engine
             juce::juce_audio_formats
+            juce::juce_audio_utils
             juce::juce_events
         PUBLIC
             juce::juce_recommended_config_flags

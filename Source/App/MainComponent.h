@@ -5,6 +5,7 @@
 #include "FileAnalysisJob.h"
 #include "GlassStyle.h"
 #include "LoudnessGraph.h"
+#include "PlaybackEngine.h"
 #include "TargetLibrary.h"
 #include "VerdictPanel.h"
 
@@ -22,7 +23,8 @@ namespace qc
         there is no real-time path here to protect.
     */
     class MainComponent : public juce::Component,
-                          public juce::FileDragAndDropTarget
+                          public juce::FileDragAndDropTarget,
+                          private juce::Timer
     {
     public:
         MainComponent();
@@ -61,6 +63,11 @@ namespace qc
         void exportJson();
         void exportPdf();
 
+        /** Loads whatever is on screen into the transport, or clears it. */
+        void preparePlayback (const juce::File& file);
+        void updateTransportControls();
+        void timerCallback() override;
+
         /** Report items for the current view: every file in a batch, or the one on
             screen. Files that failed are included so the report cannot overstate what
             was checked.
@@ -93,6 +100,9 @@ namespace qc
         juce::TextButton exportJsonButton { "JSON..." };
         juce::TextButton exportPdfButton { "PDF..." };
         juce::ToggleButton recurseToggle { "Include subfolders" };
+        juce::TextButton playButton { "Play" };
+        juce::TextButton stopButton { "Stop" };
+        juce::Label transportLabel;
         juce::Label fileLabel;
         juce::Label stemLabel;
         juce::Label statusLabel;
@@ -104,6 +114,8 @@ namespace qc
         VerdictPanel verdictPanel;
         juce::Viewport verdictViewport;
         LoudnessGraph graph;
+
+        PlaybackEngine playback;
 
         BatchAnalyser batchAnalyser;
         BatchTable batchTable;

@@ -66,6 +66,14 @@ A standalone Windows desktop app that analyses audio files for loudness complian
 - AAC / M4A via Windows Media Foundation.
 - Any file the app cannot decode fails with a specific message naming the format, never a generic failure.
 
+### Playback
+- The file on screen can be auditioned: play/pause, stop, and a position readout.
+- A playhead tracks the transport across the loudness graph.
+- Clicking or dragging anywhere in the graph seeks to that point in the file.
+- The output device is opened on first use, not at launch, so a session spent only checking files never takes a device from anything else.
+- A machine with no output device still analyses normally; the transport is disabled and says why.
+- In batch mode the selected row is what plays.
+
 ### Output
 - Loudness-over-time graph on screen: short-term and momentary LUFS across the file duration, target band shaded, true-peak overs marked.
 - Printable PDF QC report: one page per file with measurements, the per-target pass/fail table, the graph, and any fix hints.
@@ -77,13 +85,14 @@ A standalone Windows desktop app that analyses audio files for loudness complian
 - Progress is shown per file during batch runs and the run is cancellable.
 - A file whose measured integrated loudness falls within tolerance but whose true peak exceeds the ceiling is a FAIL, not a WARN.
 - WARN is reserved for the non-loudness checks (correlation, mono compatibility, clipping) and for LRA guidance. Loudness and true peak produce PASS or FAIL only.
+- Measurement is always offline and never touched by playback. A meter whose numbers depended on whether the user happened to be listening would be worthless, so auditioning reads the file on its own path and cannot influence a reading.
 - Validation against reference material is a shipping requirement, not a nice-to-have: the EBU Tech 3341/3342 compliance signals run as an automated unit-test target, asserting each measurement within the tolerance the spec states.
 - Platform: Windows only for V1. Nothing in the code should assume Windows beyond the Media Foundation AAC path, which must be isolated behind an interface.
 
 ## Out of Scope
 The user chose not to define additional scope boundaries, preferring to build and iterate. The following are excluded as a direct consequence of decisions made during planning, not as separate restrictions:
 
-- **Live audio input, playback, and transport** — the app is offline file analysis; no audio device is opened.
+- **Live audio input and recording** — an output device is opened for auditioning, but nothing is ever captured, and no measurement is ever taken from a live source.
 - **Surround, 5.1, and immersive/Atmos** — mono and stereo only.
 - **Video containers (MP4, MOV, MXF)** — audio files only; no FFmpeg dependency.
 - **Rendering corrected audio** — the app measures and advises; it never writes an audio file.

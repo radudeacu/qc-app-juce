@@ -26,6 +26,7 @@ set(QC_APP_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/BatchTable.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/GlassStyle.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/GlassLookAndFeel.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/PlaybackEngine.cpp
 )
 
 set(QC_APP_DEFINITIONS
@@ -63,6 +64,7 @@ target_compile_definitions(QCApp PRIVATE
 target_link_libraries(QCApp PRIVATE
     qc_engine
     qc_resources
+    juce::juce_audio_devices
     juce::juce_audio_formats
     juce::juce_audio_utils
     juce::juce_gui_extra
@@ -99,6 +101,7 @@ if(QC_BUILD_UI_SNAPSHOT)
     target_link_libraries(qc_uishot PRIVATE
         qc_engine
         qc_resources
+        juce::juce_audio_devices
         juce::juce_audio_formats
         juce::juce_audio_utils
         juce::juce_gui_extra
