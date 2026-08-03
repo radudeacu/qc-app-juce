@@ -3,6 +3,7 @@
 #include "../Engine/AnalysisResult.h"
 #include "../Verdict/Target.h"
 
+#include <functional>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 namespace qc
@@ -23,7 +24,19 @@ namespace qc
         void setTarget (const Target* target);
         void clearResult();
 
+        /** Position of the playback cursor. Pass a negative time to hide it. */
+        void setPlayheadSeconds (double seconds);
+
+        /** Called when the user clicks or drags in the plot, with the time under the
+            pointer. The graph is the natural place to scrub: it is where you can see
+            the passage you want to hear.
+        */
+        std::function<void (double)> onSeek;
+
         void paint (juce::Graphics& g) override;
+        void mouseDown (const juce::MouseEvent& event) override;
+        void mouseDrag (const juce::MouseEvent& event) override;
+        juce::MouseCursor getMouseCursor() override;
 
     private:
         juce::Rectangle<float> getPlotArea() const;
@@ -40,6 +53,11 @@ namespace qc
                           juce::Colour colour,
                           float thickness);
         void paintOverMarkers (juce::Graphics& g, juce::Rectangle<float> plot);
+        void paintPlayhead (juce::Graphics& g, juce::Rectangle<float> plot);
+
+        /** Time under an x position, clamped to the file. */
+        double timeAtX (float x) const;
+        void seekTo (const juce::MouseEvent& event);
 
         AnalysisResult analysis;
         bool hasResult { false };
@@ -48,6 +66,7 @@ namespace qc
         bool hasTarget { false };
 
         double durationSeconds { 0.0 };
+        double playheadSeconds { -1.0 };
         double minimumLufs { -60.0 };
         double maximumLufs { 0.0 };
     };

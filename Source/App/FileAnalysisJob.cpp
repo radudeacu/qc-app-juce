@@ -12,27 +12,6 @@ namespace qc
     {
         constexpr int kReadBlockSamples = 32768;
 
-        juce::AudioFormatManager& getFormatManager()
-        {
-            static juce::AudioFormatManager manager;
-            static bool initialised = false;
-
-            if (! initialised)
-            {
-                manager.registerBasicFormats();
-
-                // registerBasicFormats covers WAV, AIFF, FLAC, Ogg, MP3 and - on Windows -
-                // the WMA family only. AAC and M4A, which is what podcast and streaming
-                // deliverables actually arrive as, need this.
-                if (MediaFoundationAudioFormat::isAvailable())
-                    manager.registerFormat (new MediaFoundationAudioFormat(), false);
-
-                initialised = true;
-            }
-
-            return manager;
-        }
-
         /** Opens a reader, or explains precisely why it could not. */
         std::unique_ptr<juce::AudioFormatReader> createReader (const juce::File& file,
                                                                juce::String& errorMessage)
@@ -109,6 +88,27 @@ namespace qc
 
             return true;
         }
+    }
+
+    juce::AudioFormatManager& getFormatManager()
+    {
+        static juce::AudioFormatManager manager;
+        static bool initialised = false;
+
+        if (! initialised)
+        {
+            manager.registerBasicFormats();
+
+            // registerBasicFormats covers WAV, AIFF, FLAC, Ogg, MP3 and - on Windows -
+            // the WMA family only. AAC and M4A, which is what podcast and streaming
+            // deliverables actually arrive as, need this.
+            if (MediaFoundationAudioFormat::isAvailable())
+                manager.registerFormat (new MediaFoundationAudioFormat(), false);
+
+            initialised = true;
+        }
+
+        return manager;
     }
 
     juce::String getSupportedFormatWildcard()

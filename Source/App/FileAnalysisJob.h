@@ -36,6 +36,12 @@ namespace qc
                                      std::function<bool()> shouldCancel = {},
                                      std::function<void (double)> onProgress = {});
 
+    /** The shared format manager. Exposed so playback opens exactly the formats
+        analysis can - a file that measures but will not play, or the reverse, would be
+        a confusing thing to explain.
+    */
+    juce::AudioFormatManager& getFormatManager();
+
     /** Extensions the format manager can actually open on this machine, for error
         messages and for the file chooser's filter.
     */

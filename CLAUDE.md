@@ -8,6 +8,7 @@ A standalone Windows desktop app that analyses audio files for loudness complian
 - **Language:** C++17
 - **Build:** CMake + CPM, JUCE fetched at a pinned version
 - **Platform:** Windows 10+ only. AAC/M4A decode via Media Foundation
+- **Playback:** output-only device, opened lazily for auditioning. Never used for measurement
 - **Tests:** unit-test target driven by the EBU Tech 3341/3342 compliance signals
 
 ## Coding Principles
@@ -36,7 +37,8 @@ A standalone Windows desktop app that analyses audio files for loudness complian
 - Don't hardcode platform loudness targets — they change; they live in `targets.json`.
 - Don't reuse 48 kHz K-weighting coefficients at other sample rates. Re-derive them.
 - Don't render a Netflix pass/fail without a dialogue stem loaded.
-- Don't open an audio device or add playback — V1 is offline analysis only.
+- Don't capture audio or measure from a live source. The output device exists to audition files; every number comes from an offline pass.
+- Don't allocate, lock, or block on the audio thread. Playback runs through `AudioTransportSource` with a read-ahead thread — keep it that way rather than reading files in the callback.
 - Don't write audio files. The app measures and advises; it never corrects.
 - Don't add third-party dependencies without asking first.
 - Don't add features not specified in `prd.md`.

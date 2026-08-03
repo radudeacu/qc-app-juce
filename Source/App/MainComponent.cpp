@@ -11,6 +11,7 @@ namespace qc
         constexpr int kTargetColumnWidth = 236;
         constexpr int kSummaryHeight = 104;
         constexpr int kMinimumGraphHeight = 230;
+        constexpr int kTransportHeight = 36;
         constexpr int kMinimumVerdictHeight = 132;
         constexpr int kGap = 14;
         constexpr int kEdge = 16;
@@ -31,6 +32,18 @@ namespace qc
                 return "--";
 
             return juce::String (db, 1) + " dB";
+        }
+
+        /** Tenths matter on a moving readout; the summary panel's whole seconds do not. */
+        juce::String formatTime (double seconds)
+        {
+            if (! std::isfinite (seconds) || seconds < 0.0)
+                seconds = 0.0;
+
+            const auto total = static_cast<int> (seconds);
+            return juce::String (total / 60) + ":"
+                 + juce::String (total % 60).paddedLeft ('0', 2) + "."
+                 + juce::String (static_cast<int> ((seconds - total) * 10.0));
         }
 
         juce::String formatDuration (double seconds)
@@ -93,6 +106,36 @@ namespace qc
         addAndMakeVisible (verdictViewport);
 
         addAndMakeVisible (graph);
+        graph.onSeek = [this] (double seconds)
+        {
+            if (! playback.hasFile())
+                return;
+
+            playback.setPositionSeconds (seconds);
+            graph.setPlayheadSeconds (seconds);
+            updateTransportControls();
+        };
+
+        addAndMakeVisible (playButton);
+        playButton.onClick = [this] { playback.togglePlayPause(); updateTransportControls(); };
+        playButton.setEnabled (false);
+
+        addAndMakeVisible (stopButton);
+        stopButton.onClick = [this]
+        {
+            playback.stop();
+            graph.setPlayheadSeconds (0.0);
+            updateTransportControls();
+        };
+        stopButton.setEnabled (false);
+
+        transportLabel.setColour (juce::Label::textColourId, glass::colour::secondary (0.8f));
+        transportLabel.setFont (glass::font (12.0f));
+        addAndMakeVisible (transportLabel);
+
+        // The transport broadcasts from the message thread, so reaching the end of a
+        // file updates the button without the timer having to notice.
+        playback.onStateChanged = [this] { updateTransportControls(); };
 
         addAndMakeVisible (recurseToggle);
         recurseToggle.setColour (juce::ToggleButton::textColourId, glass::colour::secondary (0.82f));
@@ -252,6 +295,73 @@ namespace qc
         verdictPanel.setVerdicts (evaluate (currentResult, getSelectedTargets()));
         verdictPanel.setSize (verdictViewport.getWidth() - 8, verdictPanel.getRequiredHeight());
         repaint();
+    }
+
+    void MainComponent::preparePlayback (const juce::File& file)
+    {
+        stopTimer();
+        graph.setPlayheadSeconds (-1.0);
+
+        if (file == juce::File())
+        {
+            playback.unload();
+            updateTransportControls();
+            return;
+        }
+
+        juce::String error;
+
+        if (! playback.load (file, error))
+        {
+            // Analysis has already succeeded at this point, so a playback failure must
+            // not look like a measurement failure. It disables the transport and says
+            // why, and the report on screen stays exactly as it is.
+            transportLabel.setText (error, juce::dontSendNotification);
+            updateTransportControls();
+            return;
+        }
+
+        graph.setPlayheadSeconds (0.0);
+        updateTransportControls();
+    }
+
+    void MainComponent::updateTransportControls()
+    {
+        const auto ready = playback.hasFile();
+        const auto playing = playback.isPlaying();
+
+        playButton.setEnabled (ready);
+        stopButton.setEnabled (ready);
+        playButton.setButtonText (playing ? "Pause" : "Play");
+
+        if (ready)
+        {
+            const auto position = playback.getPositionSeconds();
+            const auto length = playback.getLengthSeconds();
+
+            transportLabel.setText (formatTime (position) + " / " + formatTime (length)
+                                        + "   -   click the graph to seek",
+                                    juce::dontSendNotification);
+        }
+        else if (! hasResult)
+        {
+            transportLabel.setText ({}, juce::dontSendNotification);
+        }
+
+        if (playing && ! isTimerRunning())
+            startTimerHz (30);
+        else if (! playing && isTimerRunning())
+            stopTimer();
+    }
+
+    void MainComponent::timerCallback()
+    {
+        const auto position = playback.getPositionSeconds();
+        graph.setPlayheadSeconds (position);
+
+        transportLabel.setText (formatTime (position) + " / " + formatTime (playback.getLengthSeconds())
+                                    + "   -   click the graph to seek",
+                                juce::dontSendNotification);
     }
 
     void MainComponent::updateExportButtons()
@@ -475,6 +585,7 @@ namespace qc
 
         hasResult = false;
         updateExportButtons();
+        preparePlayback ({});
         verdictPanel.clear();
         graph.clearResult();
 
@@ -518,6 +629,7 @@ namespace qc
         currentResult = std::move (outcome.result);
         hasResult = true;
         updateExportButtons();
+        preparePlayback (currentFile);
 
         juce::String status = juce::String (currentResult.source.formatName) + " - "
                             + juce::String (currentResult.source.sampleRate / 1000.0, 1) + " kHz - "
@@ -601,6 +713,7 @@ namespace qc
         {
             hasResult = false;
             updateExportButtons();
+            preparePlayback ({});
             verdictPanel.clear();
             graph.clearResult();
 
@@ -616,6 +729,7 @@ namespace qc
         currentResult = entry.result;
         hasResult = true;
         updateExportButtons();
+        preparePlayback (currentFile);
 
         graph.setTarget (getPrimaryTarget());
         graph.setResult (currentResult);
@@ -882,13 +996,22 @@ namespace qc
         verdictPanel.setSize (juce::jmax (10, bounds.getWidth() - 12), verdictPanel.getRequiredHeight());
 
         const int wanted = verdictPanel.getRequiredHeight() + 10;
-        const int available = bounds.getHeight() - kMinimumGraphHeight - kGap;
+        const int available = bounds.getHeight() - kMinimumGraphHeight - kTransportHeight - kGap - 4;
         const int verdictHeight = juce::jlimit (kMinimumVerdictHeight,
                                                 juce::jmax (kMinimumVerdictHeight, available),
                                                 wanted);
 
         verdictViewport.setBounds (bounds.removeFromTop (verdictHeight).reduced (2));
         bounds.removeFromTop (kGap);
+
+        auto transport = bounds.removeFromTop (kTransportHeight);
+        playButton.setBounds (transport.removeFromLeft (76).reduced (0, 3));
+        transport.removeFromLeft (6);
+        stopButton.setBounds (transport.removeFromLeft (66).reduced (0, 3));
+        transport.removeFromLeft (12);
+        transportLabel.setBounds (transport);
+
+        bounds.removeFromTop (4);
         graph.setBounds (bounds);
         verdictPanel.setSize (juce::jmax (10, verdictViewport.getWidth() - 8),
                               verdictPanel.getRequiredHeight());

@@ -97,7 +97,86 @@ namespace qc
     {
         hasResult = false;
         analysis = {};
+        playheadSeconds = -1.0;
         repaint();
+    }
+
+    void LoudnessGraph::setPlayheadSeconds (double seconds)
+    {
+        if (juce::approximatelyEqual (seconds, playheadSeconds))
+            return;
+
+        const auto plot = getPlotArea();
+        const auto previous = playheadSeconds;
+        playheadSeconds = seconds;
+
+        // Repaint only the two columns the cursor moved between. At 30 updates a second
+        // over a full-width plot, repainting the whole graph is visible as a stutter.
+        const auto repaintColumn = [this, plot] (double time)
+        {
+            if (time < 0.0)
+                return;
+
+            const auto x = timeToX (time, plot);
+            repaint (juce::Rectangle<float> (x - 2.0f, plot.getY() - 4.0f, 5.0f, plot.getHeight() + 8.0f)
+                         .getSmallestIntegerContainer());
+        };
+
+        repaintColumn (previous);
+        repaintColumn (playheadSeconds);
+    }
+
+    double LoudnessGraph::timeAtX (float x) const
+    {
+        const auto plot = getPlotArea();
+
+        if (plot.getWidth() <= 0.0f || durationSeconds <= 0.0)
+            return 0.0;
+
+        const auto proportion = (x - plot.getX()) / plot.getWidth();
+        return juce::jlimit (0.0, durationSeconds, static_cast<double> (proportion) * durationSeconds);
+    }
+
+    void LoudnessGraph::seekTo (const juce::MouseEvent& event)
+    {
+        if (! hasResult || durationSeconds <= 0.0 || onSeek == nullptr)
+            return;
+
+        onSeek (timeAtX (static_cast<float> (event.position.x)));
+    }
+
+    void LoudnessGraph::mouseDown (const juce::MouseEvent& event)
+    {
+        seekTo (event);
+    }
+
+    void LoudnessGraph::mouseDrag (const juce::MouseEvent& event)
+    {
+        seekTo (event);
+    }
+
+    juce::MouseCursor LoudnessGraph::getMouseCursor()
+    {
+        return hasResult && durationSeconds > 0.0 ? juce::MouseCursor::PointingHandCursor
+                                                  : juce::MouseCursor::NormalCursor;
+    }
+
+    void LoudnessGraph::paintPlayhead (juce::Graphics& g, juce::Rectangle<float> plot)
+    {
+        if (playheadSeconds < 0.0 || durationSeconds <= 0.0)
+            return;
+
+        const auto x = timeToX (playheadSeconds, plot);
+
+        // Drawn over everything, including the traces: it has to be findable at a glance
+        // while the audio is moving.
+        g.setColour (juce::Colours::black.withAlpha (0.55f));
+        g.fillRect (x - 1.5f, plot.getY(), 3.0f, plot.getHeight());
+
+        g.setColour (glass::colour::accent);
+        g.fillRect (x - 0.5f, plot.getY(), 1.5f, plot.getHeight());
+
+        g.fillEllipse (x - 3.5f, plot.getY() - 3.5f, 7.0f, 7.0f);
     }
 
     juce::Rectangle<float> LoudnessGraph::getPlotArea() const
@@ -343,6 +422,8 @@ namespace qc
         paintSeries (g, plot, analysis.loudness.shortTermLufs, 3.0, kShortTermColour, kShortTermThickness);
 
         paintOverMarkers (g, plot);
+
+        paintPlayhead (g, plot);
 
         if (isMeasured (analysis.loudness.integratedLufs))
         {
