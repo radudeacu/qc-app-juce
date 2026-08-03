@@ -29,6 +29,7 @@ add_library(qc_engine STATIC
     Source/Engine/QualityChecks.cpp
     Source/Engine/AudioAnalyser.cpp
     Source/Verdict/VerdictEngine.cpp
+    Source/Report/JsonReport.cpp
 )
 
 target_include_directories(qc_engine PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/Source)

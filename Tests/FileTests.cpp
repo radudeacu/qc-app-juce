@@ -2,6 +2,7 @@
 #include "SignalUtils.h"
 
 #include "App/FileAnalysisJob.h"
+#include "Report/JsonReport.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
 
@@ -98,6 +99,49 @@ QC_TEST (readsMonoAndOddSampleRates)
     checkClose (outcome.result.loudness.integratedLufs,
                 predictedSineLoudness (1000.0, 0.25, 44100.0, 1),
                 0.05, "mono integrated loudness at 44.1 kHz");
+}
+
+QC_TEST (jsonReportOfARealAnalysisParses)
+{
+    TemporaryWav wav (kRate, 2, 6.0, 0.5);
+
+    const auto outcome = qc::analyseFile (wav.getFile());
+    check (outcome.succeeded, "analysis should succeed: " + outcome.errorMessage.toStdString());
+
+    qc::Target target;
+    target.id = "ebu-r128";
+    target.name = "EBU R128";
+    target.integratedLufs = -23.0;
+    target.toleranceLu = 0.5;
+    target.maxTruePeakDb = -1.0;
+
+    const auto json = qc::writeJsonReport (outcome.result,
+                                           qc::evaluate (outcome.result, std::vector<qc::Target> { target }));
+
+    // The unit tests assert on substrings, which cannot tell valid JSON from a string
+    // that merely looks right. This runs it through an actual parser.
+    juce::var parsed;
+    const auto parseResult = juce::JSON::parse (juce::String (json), parsed);
+
+    check (parseResult.wasOk(), "the report must be valid JSON: " + parseResult.getErrorMessage().toStdString());
+    check (parsed.isObject(), "the top level should be an object");
+
+    check (static_cast<int> (parsed["schemaVersion"]) == 1, "schema version");
+    check (static_cast<int> (parsed["source"]["channels"]) == 2, "channel count survives serialisation");
+    checkClose (static_cast<double> (parsed["source"]["durationSeconds"]), 6.0, 0.01, "duration");
+
+    checkClose (static_cast<double> (parsed["loudness"]["integratedLufs"]),
+                outcome.result.loudness.integratedLufs, 0.01,
+                "the serialised loudness should match the measurement");
+
+    const auto verdicts = parsed["verdicts"];
+    check (verdicts.isArray() && verdicts.size() == 1, "one verdict per target");
+    check (verdicts[0]["targetId"].toString() == "ebu-r128", "target id round-trips");
+
+    const auto series = parsed["timeSeries"]["shortTermLufs"];
+    check (series.isArray(), "the short-term series should be an array");
+    check (static_cast<std::size_t> (series.size()) == outcome.result.loudness.shortTermLufs.size(),
+           "and should not lose entries");
 }
 
 QC_TEST (missingFileIsReportedByName)
