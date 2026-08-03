@@ -15,21 +15,22 @@ namespace qc
         {
             mainWindow = std::make_unique<MainWindow> (getApplicationName());
 
-            // Accepts a path so the app can be launched from a shell association or a
-            // terminal. This is not a headless mode - the window still opens and the
-            // result is shown there.
-            const auto arguments = juce::JUCEApplication::getCommandLineParameterArray();
+            // Accepts paths so the app can be launched from a shell association or a
+            // terminal, with a folder starting a batch exactly as dropping one would.
+            // This is not a headless mode - the window still opens and results appear
+            // there.
+            juce::StringArray paths;
 
-            for (const auto& argument : arguments)
+            for (const auto& argument : juce::JUCEApplication::getCommandLineParameterArray())
             {
-                const juce::File file (argument.unquoted());
+                const juce::File candidate (argument.unquoted());
 
-                if (file.existsAsFile())
-                {
-                    mainWindow->openFile (file);
-                    break;
-                }
+                if (candidate.exists())
+                    paths.add (candidate.getFullPathName());
             }
+
+            if (! paths.isEmpty())
+                mainWindow->openPaths (paths);
 
             juce::ignoreUnused (commandLine);
         }
@@ -61,10 +62,10 @@ namespace qc
                 setVisible (true);
             }
 
-            void openFile (const juce::File& file)
+            void openPaths (const juce::StringArray& paths)
             {
                 if (auto* content = dynamic_cast<MainComponent*> (getContentComponent()))
-                    content->openFile (file);
+                    content->openPaths (paths);
             }
 
             void closeButtonPressed() override

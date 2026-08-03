@@ -40,4 +40,20 @@ namespace qc
         messages and for the file chooser's filter.
     */
     juce::String getSupportedFormatWildcard();
+
+    /** True if this file's extension is one the format manager can open. Used to filter
+        a dropped folder so that artwork and text files are skipped silently rather than
+        filling the results table with errors the user cannot act on.
+    */
+    bool isSupportedAudioFile (const juce::File& file);
+
+    /** Audio files from a set of dropped paths. Directories contribute their contents;
+        anything unreadable is left out rather than reported.
+
+        @param recurseIntoSubfolders  Off by default in the UI: dropping a project folder
+                                      should not silently pull in every bounce and stem
+                                      nested underneath it.
+    */
+    std::vector<juce::File> collectAudioFiles (const juce::StringArray& paths,
+                                               bool recurseIntoSubfolders);
 }

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "BatchAnalyser.h"
+#include "BatchTable.h"
 #include "FileAnalysisJob.h"
 #include "LoudnessGraph.h"
 #include "TargetLibrary.h"
@@ -31,6 +33,11 @@ namespace qc
         */
         void openFile (const juce::File& file);
 
+        /** Same routing a drop takes: one file opens singly, several or a folder start a
+            batch. Used for command-line arguments and shell "open with".
+        */
+        void openPaths (const juce::StringArray& paths);
+
         bool isInterestedInFileDrag (const juce::StringArray& files) override;
         void fileDragEnter (const juce::StringArray& files, int x, int y) override;
         void fileDragExit (const juce::StringArray& files) override;
@@ -41,6 +48,10 @@ namespace qc
         void rebuildVerdicts();
         void startAnalysis (const juce::File& file);
         void finishAnalysis (FileAnalysisOutcome outcome);
+        void startBatch (std::vector<juce::File> files);
+        void showBatchEntry (int entryIndex);
+        void updateBatchStatus();
+        void setBatchMode (bool shouldBeBatch);
         void chooseProgrammeFile();
         void chooseDialogueStem();
         void clearDialogueStem();
@@ -63,6 +74,7 @@ namespace qc
         juce::TextButton stemButton { "Dialogue stem..." };
         juce::TextButton clearStemButton { "Clear" };
         juce::TextButton exportButton { "Export JSON..." };
+        juce::ToggleButton recurseToggle { "Include subfolders" };
         juce::Label fileLabel;
         juce::Label stemLabel;
         juce::Label statusLabel;
@@ -74,6 +86,15 @@ namespace qc
         VerdictPanel verdictPanel;
         juce::Viewport verdictViewport;
         LoudnessGraph graph;
+
+        BatchAnalyser batchAnalyser;
+        BatchTable batchTable;
+        bool batchMode { false };
+
+        /** Kept so that loading or clearing a dialogue stem can re-run the same set
+            rather than making the user drop the folder again.
+        */
+        std::vector<juce::File> batchFiles;
 
         std::unique_ptr<juce::FileChooser> fileChooser;
 

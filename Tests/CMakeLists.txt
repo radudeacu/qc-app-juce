@@ -23,8 +23,10 @@ if(TARGET juce::juce_audio_formats)
     add_executable(qc_file_tests
         main.cpp
         FileTests.cpp
+        BatchTests.cpp
         ${CMAKE_SOURCE_DIR}/Source/App/FileAnalysisJob.cpp
         ${CMAKE_SOURCE_DIR}/Source/App/MediaFoundationAudioFormat.cpp
+        ${CMAKE_SOURCE_DIR}/Source/App/BatchAnalyser.cpp
     )
 
     if(WIN32)
@@ -36,6 +38,7 @@ if(TARGET juce::juce_audio_formats)
         PRIVATE
             qc_engine
             juce::juce_audio_formats
+            juce::juce_events
         PUBLIC
             juce::juce_recommended_config_flags
     )
@@ -45,6 +48,9 @@ if(TARGET juce::juce_audio_formats)
         JUCE_USE_CURL=0
         JUCE_USE_MP3AUDIOFORMAT=1
         JUCE_STANDALONE_APPLICATION=1
+        # Tests only: lets the batch tests pump the message loop and wait for their
+        # callbacks. The app itself never runs a modal loop.
+        JUCE_MODAL_LOOPS_PERMITTED=1
     )
 
     target_include_directories(qc_file_tests PRIVATE
