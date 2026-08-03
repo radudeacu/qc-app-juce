@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "_note": "Seed values. Every entry carries lastVerified: an empty string means the number has NOT been checked against the platform's current published specification. Verify before relying on a verdict, then set the date. Editing this file is the supported way to track spec drift - never hardcode these in C++.",
+  "targets": [
+    {
+      "id": "ebu-r128",
+      "name": "EBU R128",
+      "integratedLufs": -23.0,
+      "toleranceLu": 0.5,
+      "maxTruePeakDb": -1.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "atsc-a85",
+      "name": "ATSC A/85",
+      "integratedLufs": -24.0,
+      "toleranceLu": 2.0,
+      "maxTruePeakDb": -2.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "spotify",
+      "name": "Spotify",
+      "integratedLufs": -14.0,
+      "maxTruePeakDb": -1.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "youtube",
+      "name": "YouTube",
+      "integratedLufs": -14.0,
+      "maxTruePeakDb": -1.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "apple-music",
+      "name": "Apple Music",
+      "integratedLufs": -16.0,
+      "maxTruePeakDb": -1.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "tidal",
+      "name": "Tidal",
+      "integratedLufs": -14.0,
+      "maxTruePeakDb": -1.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "amazon-music",
+      "name": "Amazon Music",
+      "integratedLufs": -14.0,
+      "maxTruePeakDb": -2.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "apple-podcasts",
+      "name": "Apple Podcasts",
+      "integratedLufs": -16.0,
+      "toleranceLu": 1.0,
+      "maxTruePeakDb": -1.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "spotify-spoken",
+      "name": "Spotify (spoken word)",
+      "integratedLufs": -14.0,
+      "maxTruePeakDb": -1.0,
+      "gating": "program",
+      "lastVerified": ""
+    },
+    {
+      "id": "netflix",
+      "name": "Netflix",
+      "integratedLufs": -27.0,
+      "toleranceLu": 2.0,
+      "maxTruePeakDb": -2.0,
+      "gating": "dialogue",
+      "lastVerified": ""
+    }
+  ]
+}

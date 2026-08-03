@@ -1,0 +1,8 @@
+build/
+cmake-build-*/
+out/
+.vs/
+*.user
+*.suo
+CMakeUserPresets.json
+.claude/settings.local.json
