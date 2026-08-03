@@ -23,7 +23,13 @@ if(TARGET juce::juce_audio_formats)
         main.cpp
         FileTests.cpp
         ${CMAKE_SOURCE_DIR}/Source/App/FileAnalysisJob.cpp
+        ${CMAKE_SOURCE_DIR}/Source/App/MediaFoundationAudioFormat.cpp
     )
+
+    if(WIN32)
+        target_sources(qc_file_tests PRIVATE AacTests.cpp)
+        target_link_libraries(qc_file_tests PRIVATE mfplat mfreadwrite mfuuid ole32)
+    endif()
 
     target_link_libraries(qc_file_tests
         PRIVATE

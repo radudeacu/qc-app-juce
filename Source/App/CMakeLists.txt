@@ -28,7 +28,13 @@ target_sources(QCApp PRIVATE
     TargetLibrary.cpp
     LoudnessGraph.cpp
     VerdictPanel.cpp
+    MediaFoundationAudioFormat.cpp
 )
+
+if(WIN32)
+    # AAC/M4A decoding via the codecs already present on the system.
+    target_link_libraries(QCApp PRIVATE mfplat mfreadwrite mfuuid ole32)
+endif()
 
 target_compile_definitions(QCApp PRIVATE
     JUCE_WEB_BROWSER=0
