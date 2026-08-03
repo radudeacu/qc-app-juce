@@ -7,6 +7,8 @@
 #include "TargetLibrary.h"
 #include "VerdictPanel.h"
 
+#include "../Report/PdfReport.h"
+
 #include <atomic>
 #include <juce_gui_extra/juce_gui_extra.h>
 
@@ -56,6 +58,14 @@ namespace qc
         void chooseDialogueStem();
         void clearDialogueStem();
         void exportJson();
+        void exportPdf();
+
+        /** Report items for the current view: every file in a batch, or the one on
+            screen. Files that failed are included so the report cannot overstate what
+            was checked.
+        */
+        std::vector<PdfReportItem> gatherReportItems() const;
+        void updateExportButtons();
 
         std::vector<Target> getSelectedTargets() const;
         const Target* getPrimaryTarget() const;
@@ -73,7 +83,8 @@ namespace qc
         juce::TextButton openButton { "Open file..." };
         juce::TextButton stemButton { "Dialogue stem..." };
         juce::TextButton clearStemButton { "Clear" };
-        juce::TextButton exportButton { "Export JSON..." };
+        juce::TextButton exportJsonButton { "JSON..." };
+        juce::TextButton exportPdfButton { "PDF..." };
         juce::ToggleButton recurseToggle { "Include subfolders" };
         juce::Label fileLabel;
         juce::Label stemLabel;

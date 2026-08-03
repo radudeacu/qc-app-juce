@@ -61,9 +61,13 @@ namespace qc
         clearStemButton.onClick = [this] { clearDialogueStem(); };
         clearStemButton.setEnabled (false);
 
-        addAndMakeVisible (exportButton);
-        exportButton.onClick = [this] { exportJson(); };
-        exportButton.setEnabled (false);
+        addAndMakeVisible (exportJsonButton);
+        exportJsonButton.onClick = [this] { exportJson(); };
+        exportJsonButton.setEnabled (false);
+
+        addAndMakeVisible (exportPdfButton);
+        exportPdfButton.onClick = [this] { exportPdf(); };
+        exportPdfButton.setEnabled (false);
 
         fileLabel.setText ("Drop an audio file anywhere in this window", juce::dontSendNotification);
         fileLabel.setColour (juce::Label::textColourId, kMutedText);
@@ -101,6 +105,7 @@ namespace qc
         {
             batchTable.refreshRow (index);
             updateBatchStatus();
+            updateExportButtons();
 
             // Show the first file that finishes, so the window is not empty while a long
             // folder works through.
@@ -245,6 +250,115 @@ namespace qc
         repaint();
     }
 
+    void MainComponent::updateExportButtons()
+    {
+        // JSON covers the file on screen; PDF covers everything in the current view, so
+        // a batch can produce a report before every file has finished.
+        exportJsonButton.setEnabled (hasResult);
+        exportPdfButton.setEnabled (hasResult || (batchMode && batchAnalyser.getCompletedCount() > 0));
+    }
+
+    std::vector<PdfReportItem> MainComponent::gatherReportItems() const
+    {
+        std::vector<PdfReportItem> items;
+
+        if (batchMode)
+        {
+            for (int i = 0; i < batchAnalyser.getNumEntries(); ++i)
+            {
+                const auto& entry = batchAnalyser.getEntry (i);
+
+                if (entry.state == BatchEntry::State::pending
+                    || entry.state == BatchEntry::State::running)
+                    continue;
+
+                PdfReportItem item;
+                item.displayName = entry.file.getFullPathName().toStdString();
+
+                if (entry.state == BatchEntry::State::failed)
+                    item.errorMessage = entry.errorMessage.toStdString();
+                else
+                {
+                    item.result = entry.result;
+                    item.verdicts = entry.verdicts;
+                }
+
+                items.push_back (std::move (item));
+            }
+
+            return items;
+        }
+
+        if (hasResult)
+        {
+            PdfReportItem item;
+            item.displayName = currentFile.getFullPathName().toStdString();
+            item.result = currentResult;
+            item.verdicts = evaluate (currentResult, getSelectedTargets());
+            items.push_back (std::move (item));
+        }
+
+        return items;
+    }
+
+    void MainComponent::exportPdf()
+    {
+        auto items = gatherReportItems();
+
+        if (items.empty())
+            return;
+
+        const auto suggested = batchMode
+                             ? currentFile.getParentDirectory()
+                                          .getChildFile (currentFile.getParentDirectory().getFileName()
+                                                         + " QC report.pdf")
+                             : currentFile.getParentDirectory()
+                                          .getChildFile (currentFile.getFileNameWithoutExtension()
+                                                         + " QC report.pdf");
+
+        fileChooser = std::make_unique<juce::FileChooser> ("Save the QC report", suggested, "*.pdf");
+
+        fileChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                      | juce::FileBrowserComponent::canSelectFiles
+                                      | juce::FileBrowserComponent::warnAboutOverwriting,
+                                  [this, items = std::move (items)] (const juce::FileChooser& chooser)
+                                  {
+                                      const auto destination = chooser.getResult();
+
+                                      if (destination == juce::File())
+                                          return;
+
+                                      const auto pdf = writePdfReport (items);
+
+                                      // PDF is binary: writing it as text would corrupt it
+                                      // through line-ending translation.
+                                      juce::TemporaryFile temporary (destination);
+
+                                      {
+                                          juce::FileOutputStream stream (temporary.getFile());
+
+                                          if (! stream.openedOk()
+                                              || ! stream.write (pdf.data(), pdf.size()))
+                                          {
+                                              statusLabel.setText ("Could not write "
+                                                                       + destination.getFullPathName(),
+                                                                   juce::dontSendNotification);
+                                              return;
+                                          }
+                                      }
+
+                                      if (temporary.overwriteTargetFileWithTemporary())
+                                          statusLabel.setText ("Saved " + destination.getFileName()
+                                                                   + " (" + juce::String (items.size())
+                                                                   + " page(s))",
+                                                               juce::dontSendNotification);
+                                      else
+                                          statusLabel.setText ("Could not replace "
+                                                                   + destination.getFullPathName(),
+                                                               juce::dontSendNotification);
+                                  });
+    }
+
     void MainComponent::exportJson()
     {
         if (! hasResult)
@@ -356,7 +470,7 @@ namespace qc
         fileLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.9f));
 
         hasResult = false;
-        exportButton.setEnabled (false);
+        updateExportButtons();
         verdictPanel.clear();
         graph.clearResult();
 
@@ -399,7 +513,7 @@ namespace qc
 
         currentResult = std::move (outcome.result);
         hasResult = true;
-        exportButton.setEnabled (true);
+        updateExportButtons();
 
         juce::String status = juce::String (currentResult.source.formatName) + " - "
                             + juce::String (currentResult.source.sampleRate / 1000.0, 1) + " kHz - "
@@ -439,7 +553,7 @@ namespace qc
         setBatchMode (true);
 
         hasResult = false;
-        exportButton.setEnabled (false);
+        exportJsonButton.setEnabled (false);
         verdictPanel.clear();
         graph.clearResult();
 
@@ -482,7 +596,7 @@ namespace qc
         if (entry.state != BatchEntry::State::completed)
         {
             hasResult = false;
-            exportButton.setEnabled (false);
+            updateExportButtons();
             verdictPanel.clear();
             graph.clearResult();
 
@@ -497,7 +611,7 @@ namespace qc
         currentFile = entry.file;
         currentResult = entry.result;
         hasResult = true;
-        exportButton.setEnabled (true);
+        updateExportButtons();
 
         graph.setTarget (getPrimaryTarget());
         graph.setResult (currentResult);
@@ -660,7 +774,9 @@ namespace qc
         topBar.removeFromLeft (4);
         clearStemButton.setBounds (topBar.removeFromLeft (60).reduced (0, 8));
         topBar.removeFromLeft (kGap);
-        exportButton.setBounds (topBar.removeFromLeft (120).reduced (0, 8));
+        exportJsonButton.setBounds (topBar.removeFromLeft (78).reduced (0, 8));
+        topBar.removeFromLeft (4);
+        exportPdfButton.setBounds (topBar.removeFromLeft (72).reduced (0, 8));
         topBar.removeFromLeft (kGap);
         recurseToggle.setBounds (topBar.removeFromLeft (150).reduced (0, 8));
         topBar.removeFromLeft (kGap);
