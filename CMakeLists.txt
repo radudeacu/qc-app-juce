@@ -39,11 +39,13 @@ else()
     target_compile_options(qc_engine PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
+# App before Tests: with QC_BUILD_APP on, the test suite gains a second target that
+# covers the file-reading path, and that needs JUCE's targets to already exist.
+if(QC_BUILD_APP)
+    add_subdirectory(Source/App)
+endif()
+
 if(QC_BUILD_TESTS)
     enable_testing()
     add_subdirectory(Tests)
-endif()
-
-if(QC_BUILD_APP)
-    add_subdirectory(Source/App)
 endif()
