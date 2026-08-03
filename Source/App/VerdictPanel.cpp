@@ -1,5 +1,7 @@
 #include "VerdictPanel.h"
 
+#include "GlassStyle.h"
+
 #include <algorithm>
 
 namespace qc
@@ -12,6 +14,11 @@ namespace qc
         constexpr int kVerdictSpacing = 14;
         constexpr int kPadding = 12;
         constexpr int kChipWidth = 104;
+
+        /** With no verdicts the panel still has something to say, and sizing it to its
+            (zero) content would clip the message out of existence.
+        */
+        constexpr int kEmptyHeight = 132;
 
         int countLines (const std::string& text)
         {
@@ -39,13 +46,13 @@ namespace qc
     {
         switch (status)
         {
-            case Status::pass:        return juce::Colour (0xff48c774);
-            case Status::warn:        return juce::Colour (0xffe6a23c);
-            case Status::fail:        return juce::Colour (0xffe0575b);
-            case Status::notMeasured: return juce::Colour (0xff8892a4);
+            case Status::pass:        return glass::colour::pass;
+            case Status::warn:        return glass::colour::warn;
+            case Status::fail:        return glass::colour::fail;
+            case Status::notMeasured: return glass::colour::absent;
         }
 
-        return juce::Colour (0xff8892a4);
+        return glass::colour::absent;
     }
 
     void VerdictPanel::setVerdicts (std::vector<TargetVerdict> newVerdicts)
@@ -62,6 +69,9 @@ namespace qc
 
     int VerdictPanel::getRequiredHeight() const
     {
+        if (verdicts.empty())
+            return kEmptyHeight;
+
         int height = kPadding;
 
         for (const auto& verdict : verdicts)
@@ -75,17 +85,11 @@ namespace qc
         const int width = getWidth();
         const auto colour = getStatusColour (verdict.status);
 
-        const juce::Rectangle<int> chip (kPadding, y + 4, kChipWidth, kHeaderHeight - 10);
+        const juce::Rectangle<int> chip (kPadding, y + 5, kChipWidth, kHeaderHeight - 12);
+        glass::paintStatusPill (g, chip.toFloat(), colour, toString (verdict.status));
 
-        g.setColour (colour.withAlpha (0.18f));
-        g.fillRoundedRectangle (chip.toFloat(), 4.0f);
-
-        g.setColour (colour);
-        g.setFont (juce::FontOptions (11.5f, juce::Font::bold));
-        g.drawText (toString (verdict.status), chip, juce::Justification::centred);
-
-        g.setColour (juce::Colours::white.withAlpha (0.92f));
-        g.setFont (juce::FontOptions (15.0f, juce::Font::bold));
+        g.setColour (glass::colour::text (0.94f));
+        g.setFont (glass::font (15.0f, true));
         g.drawText (verdict.targetName,
                     juce::Rectangle<int> (chip.getRight() + 12, y, width - chip.getRight() - 24, kHeaderHeight),
                     juce::Justification::centredLeft);
@@ -99,13 +103,13 @@ namespace qc
             g.setColour (checkColour.withAlpha (check.status == Status::pass ? 0.45f : 0.9f));
             g.fillEllipse (static_cast<float> (kPadding + 6), static_cast<float> (y + 7), 5.0f, 5.0f);
 
-            g.setColour (juce::Colours::white.withAlpha (0.66f));
-            g.setFont (juce::FontOptions (12.5f));
+            g.setColour (glass::colour::secondary (0.6f));
+            g.setFont (glass::font (12.5f));
             g.drawText (check.name,
                         juce::Rectangle<int> (kPadding + 20, y, 210, kCheckHeight),
                         juce::Justification::centredLeft);
 
-            g.setColour (juce::Colours::white.withAlpha (0.82f));
+            g.setColour (glass::colour::text (0.86f));
             g.drawText (check.detail,
                         juce::Rectangle<int> (kPadding + 236, y, width - kPadding - 248, kCheckHeight),
                         juce::Justification::centredLeft);
@@ -118,11 +122,11 @@ namespace qc
             juce::StringArray lines;
             lines.addLines (verdict.fixHint);
 
-            g.setFont (juce::FontOptions (12.5f, juce::Font::italic));
+            g.setFont (glass::font (12.5f));
 
             for (const auto& line : lines)
             {
-                g.setColour (juce::Colour (0xffffd479));
+                g.setColour (glass::colour::warn.withAlpha (0.92f));
                 g.drawText (line,
                             juce::Rectangle<int> (kPadding + 20, y, width - kPadding - 32, kHintLineHeight),
                             juce::Justification::centredLeft);
@@ -138,10 +142,10 @@ namespace qc
     {
         if (verdicts.empty())
         {
-            g.setColour (juce::Colours::white.withAlpha (0.35f));
-            g.setFont (juce::FontOptions (13.0f));
+            g.setColour (glass::colour::secondary (0.45f));
+            g.setFont (glass::font (13.0f));
             g.drawText ("Select one or more targets, then drop a file to see whether it passes.",
-                        getLocalBounds().reduced (kPadding), juce::Justification::centredTop);
+                        getLocalBounds().reduced (kPadding), juce::Justification::centred);
             return;
         }
 

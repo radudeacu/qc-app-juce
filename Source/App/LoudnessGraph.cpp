@@ -1,7 +1,10 @@
 #include "LoudnessGraph.h"
 
+#include "GlassStyle.h"
+
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace qc
 {
@@ -9,15 +12,16 @@ namespace qc
     {
         constexpr float kAxisWidth = 46.0f;
         constexpr float kBottomAxisHeight = 20.0f;
-        constexpr double kHeadroomLu = 6.0;
-        constexpr double kMinimumSpanLu = 20.0;
+        constexpr double kHeadroomLu = 4.0;
+        constexpr double kMinimumSpanLu = 12.0;
+        constexpr float kHeaderHeight = 20.0f;
 
-        const juce::Colour kShortTermColour { 0xff4fa3ff };
-        const juce::Colour kMomentaryColour { 0x664fd6a0 };
-        const juce::Colour kBandColour { 0x3348c774 };
-        const juce::Colour kOverColour { 0xffe0575b };
-        const juce::Colour kGridColour { 0x22ffffff };
-        const juce::Colour kTextColour { 0xff9aa4b2 };
+        const juce::Colour kShortTermColour { 0xff9db6ff };
+        const juce::Colour kMomentaryColour { 0x5a5eead4 };
+        const juce::Colour kBandColour { 0x304ade80 };
+        const juce::Colour kOverColour = glass::colour::fail;
+        const juce::Colour kGridColour { 0x18ffffff };
+        const juce::Colour kTextColour = glass::colour::secondary (0.55f);
     }
 
     LoudnessGraph::LoudnessGraph()
@@ -32,9 +36,9 @@ namespace qc
         durationSeconds = result.source.durationSeconds;
 
         // Scale to the material rather than to a fixed window, so a -40 LUFS podcast and
-        // a -9 LUFS master are both legible.
-        double lowest = -40.0;
-        double highest = -10.0;
+        // a -9 LUFS master are both legible and neither wastes half the plot.
+        double lowest = std::numeric_limits<double>::max();
+        double highest = std::numeric_limits<double>::lowest();
 
         for (double value : result.loudness.shortTermLufs)
         {
@@ -43,6 +47,12 @@ namespace qc
 
             lowest = std::min (lowest, value);
             highest = std::max (highest, value);
+        }
+
+        if (lowest > highest)
+        {
+            lowest = -40.0;
+            highest = -10.0;
         }
 
         if (hasTarget)
@@ -87,8 +97,9 @@ namespace qc
     juce::Rectangle<float> LoudnessGraph::getPlotArea() const
     {
         return getLocalBounds().toFloat()
-                              .reduced (4.0f)
+                              .reduced (8.0f)
                               .withTrimmedLeft (kAxisWidth)
+                              .withTrimmedTop (kHeaderHeight)
                               .withTrimmedBottom (kBottomAxisHeight);
     }
 
@@ -114,14 +125,14 @@ namespace qc
     void LoudnessGraph::paintEmptyState (juce::Graphics& g)
     {
         g.setColour (kTextColour.withAlpha (0.6f));
-        g.setFont (juce::FontOptions (14.0f));
+        g.setFont (glass::font (13.5f));
         g.drawText ("Loudness over time appears here once a file is analysed",
                     getLocalBounds(), juce::Justification::centred);
     }
 
     void LoudnessGraph::paintGrid (juce::Graphics& g, juce::Rectangle<float> plot)
     {
-        g.setFont (juce::FontOptions (11.0f));
+        g.setFont (glass::font (10.5f));
 
         // A gridline every 6 LU keeps the labels readable at any zoom level.
         const double step = 6.0;
@@ -140,8 +151,8 @@ namespace qc
                         juce::Justification::centredRight);
         }
 
-        g.setColour (kTextColour);
-        g.drawText ("LUFS", juce::Rectangle<float> (0.0f, plot.getBottom() + 4.0f, kAxisWidth - 6.0f, 14.0f),
+        g.setColour (kTextColour.withAlpha (0.5f));
+        g.drawText ("LUFS", juce::Rectangle<float> (0.0f, plot.getBottom() + 4.0f, kAxisWidth - 8.0f, 14.0f),
                     juce::Justification::centredRight);
 
         if (durationSeconds <= 0.0)
@@ -165,10 +176,26 @@ namespace qc
             const auto label = juce::String (minutes) + ":"
                              + juce::String (remainder, 1).paddedLeft ('0', 4);
 
+            // The end labels are aligned inward so the first cannot run back over the
+            // axis caption and the last cannot run off the panel.
+            auto justification = juce::Justification::centred;
+            auto labelX = x - 30.0f;
+
+            if (i == 0)
+            {
+                justification = juce::Justification::centredLeft;
+                labelX = x;
+            }
+            else if (i == divisions)
+            {
+                justification = juce::Justification::centredRight;
+                labelX = x - 60.0f;
+            }
+
             g.setColour (kTextColour);
             g.drawText (label,
-                        juce::Rectangle<float> (x - 30.0f, plot.getBottom() + 4.0f, 60.0f, 14.0f),
-                        juce::Justification::centred);
+                        juce::Rectangle<float> (labelX, plot.getBottom() + 4.0f, 60.0f, 14.0f),
+                        justification);
         }
     }
 
@@ -181,17 +208,20 @@ namespace qc
         const float top = loudnessToY (target.integratedLufs + tolerance, plot);
         const float bottom = loudnessToY (target.integratedLufs - tolerance, plot);
 
-        g.setColour (kBandColour);
-        g.fillRect (juce::Rectangle<float> (plot.getX(), top, plot.getWidth(), bottom - top));
-
         const float centre = loudnessToY (target.integratedLufs, plot);
-        g.setColour (kBandColour.withAlpha (0.9f));
+        const float height = juce::jmax (3.0f, bottom - top);
+        const float bandTop = juce::jmin (top, centre - height * 0.5f);
+
+        g.setColour (kBandColour);
+        g.fillRect (juce::Rectangle<float> (plot.getX(), bandTop, plot.getWidth(), height));
+
+        g.setColour (glass::colour::pass.withAlpha (0.55f));
         g.drawHorizontalLine (juce::roundToInt (centre), plot.getX(), plot.getRight());
 
         g.setColour (kTextColour);
-        g.setFont (juce::FontOptions (11.0f));
+        g.setFont (glass::font (10.5f));
         g.drawText (juce::String (target.name) + " " + juce::String (target.integratedLufs, 1),
-                    juce::Rectangle<float> (plot.getX() + 6.0f, centre - 15.0f, 220.0f, 13.0f),
+                    juce::Rectangle<float> (plot.getX() + 8.0f, centre + 3.0f, 220.0f, 13.0f),
                     juce::Justification::centredLeft);
     }
 
@@ -260,16 +290,17 @@ namespace qc
             g.fillRect (juce::Rectangle<float> (x, plot.getY(), width, 5.0f));
         }
 
-        g.setFont (juce::FontOptions (11.0f));
-        g.drawText (juce::String (overs.size()) + (overs.size() == 1 ? " true-peak over" : " true-peak overs"),
-                    juce::Rectangle<float> (plot.getRight() - 160.0f, plot.getY() + 7.0f, 154.0f, 14.0f),
+        g.setFont (glass::font (10.5f, true));
+        g.drawText (juce::String (overs.size()) + (overs.size() == 1 ? " TRUE-PEAK OVER" : " TRUE-PEAK OVERS"),
+                    juce::Rectangle<float> (plot.getRight() - 200.0f, plot.getY() - kHeaderHeight,
+                                            200.0f, 14.0f),
                     juce::Justification::centredRight);
     }
 
     void LoudnessGraph::paint (juce::Graphics& g)
     {
-        g.setColour (juce::Colour (0xff14181f));
-        g.fillRoundedRectangle (getLocalBounds().toFloat(), 6.0f);
+        const auto panel = getLocalBounds().toFloat();
+        glass::paintPanel (g, panel, glass::Depth::recessed);
 
         if (! hasResult || durationSeconds <= 0.0)
         {
@@ -281,6 +312,12 @@ namespace qc
 
         if (plot.getWidth() <= 0.0f || plot.getHeight() <= 0.0f)
             return;
+
+        g.setColour (kTextColour.withAlpha (0.55f));
+        g.setFont (glass::font (10.5f, true));
+        g.drawText ("LOUDNESS OVER TIME",
+                    juce::Rectangle<float> (plot.getX(), plot.getY() - kHeaderHeight, 240.0f, 14.0f),
+                    juce::Justification::centredLeft);
 
         paintTargetBand (g, plot);
         paintGrid (g, plot);
@@ -298,9 +335,9 @@ namespace qc
             const float dashes[] = { 4.0f, 4.0f };
             g.drawDashedLine (juce::Line<float> (plot.getX(), y, plot.getRight(), y), dashes, 2, 1.0f);
 
-            g.setFont (juce::FontOptions (11.0f));
+            g.setFont (glass::font (10.5f));
             g.drawText ("Integrated " + juce::String (analysis.loudness.integratedLufs, 1),
-                        juce::Rectangle<float> (plot.getRight() - 160.0f, y - 15.0f, 154.0f, 13.0f),
+                        juce::Rectangle<float> (plot.getRight() - 154.0f, y - 16.0f, 150.0f, 13.0f),
                         juce::Justification::centredRight);
         }
     }

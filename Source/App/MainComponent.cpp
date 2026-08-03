@@ -7,15 +7,15 @@ namespace qc
 {
     namespace
     {
-        constexpr int kTopBarHeight = 46;
-        constexpr int kTargetColumnWidth = 210;
-        constexpr int kSummaryHeight = 84;
-        constexpr int kGraphHeight = 230;
-        constexpr int kGap = 10;
+        constexpr int kTopBarHeight = 62;
+        constexpr int kTargetColumnWidth = 236;
+        constexpr int kSummaryHeight = 104;
+        constexpr int kMinimumGraphHeight = 230;
+        constexpr int kMinimumVerdictHeight = 132;
+        constexpr int kGap = 14;
+        constexpr int kEdge = 16;
 
-        const juce::Colour kBackground { 0xff0f1319 };
-        const juce::Colour kPanel { 0xff171c24 };
-        const juce::Colour kMutedText { 0xff8892a4 };
+        const juce::Colour kMutedText = glass::colour::secondary();
 
         juce::String formatLoudness (double lufs, const char* suffix = " LUFS")
         {
@@ -69,17 +69,18 @@ namespace qc
         exportPdfButton.onClick = [this] { exportPdf(); };
         exportPdfButton.setEnabled (false);
 
-        fileLabel.setText ("Drop an audio file anywhere in this window", juce::dontSendNotification);
+        fileLabel.setText ("Drop audio or a folder here", juce::dontSendNotification);
         fileLabel.setColour (juce::Label::textColourId, kMutedText);
+        fileLabel.setFont (glass::font (13.0f));
         addAndMakeVisible (fileLabel);
 
         stemLabel.setText ("No dialogue stem", juce::dontSendNotification);
-        stemLabel.setColour (juce::Label::textColourId, kMutedText);
-        stemLabel.setFont (juce::FontOptions (12.0f));
+        stemLabel.setColour (juce::Label::textColourId, glass::colour::faint (0.42f));
+        stemLabel.setFont (glass::font (11.5f));
         addAndMakeVisible (stemLabel);
 
         statusLabel.setColour (juce::Label::textColourId, kMutedText);
-        statusLabel.setFont (juce::FontOptions (12.0f));
+        statusLabel.setFont (glass::font (12.0f));
         statusLabel.setJustificationType (juce::Justification::centredRight);
         addAndMakeVisible (statusLabel);
 
@@ -94,7 +95,7 @@ namespace qc
         addAndMakeVisible (graph);
 
         addAndMakeVisible (recurseToggle);
-        recurseToggle.setColour (juce::ToggleButton::textColourId, kMutedText);
+        recurseToggle.setColour (juce::ToggleButton::textColourId, glass::colour::secondary (0.66f));
         recurseToggle.setTooltip ("Off by default: dropping a project folder should not pull in "
                                   "every bounce and stem nested underneath it");
 
@@ -107,10 +108,13 @@ namespace qc
             updateBatchStatus();
             updateExportButtons();
 
-            // Show the first file that finishes, so the window is not empty while a long
-            // folder works through.
-            if (! hasResult && batchTable.getSelectedEntryIndex() < 0)
-                batchTable.refreshAll();
+            // Show the first file that finishes rather than leaving the summary, graph
+            // and verdict panel blank while a long folder works through.
+            const auto& entry = batchAnalyser.getEntry (index);
+
+            if (batchTable.getSelectedEntryIndex() < 0
+                && entry.state == BatchEntry::State::completed)
+                batchTable.selectEntry (index);
         };
 
         batchAnalyser.onFinished = [this]
@@ -674,14 +678,15 @@ namespace qc
 
     void MainComponent::paintSummary (juce::Graphics& g, juce::Rectangle<int> area)
     {
-        g.setColour (kPanel);
-        g.fillRoundedRectangle (area.toFloat(), 6.0f);
+        const auto panel = area.toFloat();
+        glass::paintPanelShadow (g, panel);
+        glass::paintPanel (g, panel, glass::Depth::raised);
 
         if (! hasResult)
         {
-            g.setColour (kMutedText);
-            g.setFont (juce::FontOptions (13.0f));
-            g.drawText (analysisRunning ? "Analysing..." : "No file analysed yet",
+            g.setColour (glass::colour::secondary (0.5f));
+            g.setFont (glass::font (13.5f));
+            g.drawText (analysisRunning ? "Analysing..." : "Nothing analysed yet",
                         area, juce::Justification::centred);
             return;
         }
@@ -706,18 +711,30 @@ namespace qc
         const int columnWidth = area.getWidth() / static_cast<int> (fields.size());
         int x = area.getX();
 
-        for (const auto& field : fields)
+        for (std::size_t i = 0; i < fields.size(); ++i)
         {
+            const auto& field = fields[i];
             const juce::Rectangle<int> cell (x, area.getY(), columnWidth, area.getHeight());
 
-            g.setColour (kMutedText);
-            g.setFont (juce::FontOptions (11.0f));
-            g.drawText (field.name, cell.reduced (10, 0).withTrimmedBottom (cell.getHeight() / 2),
+            // Hairlines between figures rather than boxes around them: the panel already
+            // groups them, so anything heavier is noise.
+            if (i > 0)
+            {
+                g.setColour (juce::Colours::white.withAlpha (0.07f));
+                g.fillRect (static_cast<float> (x), static_cast<float> (area.getY() + 18),
+                            1.0f, static_cast<float> (area.getHeight() - 36));
+            }
+
+            g.setColour (glass::colour::secondary (0.52f));
+            g.setFont (glass::font (10.5f, true));
+            g.drawText (juce::String (field.name).toUpperCase(),
+                        cell.reduced (16, 0).withTrimmedBottom (cell.getHeight() / 2),
                         juce::Justification::bottomLeft);
 
-            g.setColour (juce::Colours::white.withAlpha (0.92f));
-            g.setFont (juce::FontOptions (19.0f, juce::Font::bold));
-            g.drawText (field.value, cell.reduced (10, 0).withTrimmedTop (cell.getHeight() / 2 - 4),
+            g.setColour (glass::colour::text (0.95f));
+            g.setFont (glass::font (22.0f));
+            g.drawText (field.value,
+                        cell.reduced (16, 0).withTrimmedTop (cell.getHeight() / 2 - 6),
                         juce::Justification::topLeft);
 
             x += columnWidth;
@@ -725,10 +742,10 @@ namespace qc
 
         if (currentResult.hasDialogueGatedLoudness)
         {
-            g.setColour (kMutedText);
-            g.setFont (juce::FontOptions (11.0f));
+            g.setColour (glass::colour::secondary());
+            g.setFont (glass::font (11.0f));
             g.drawText ("Dialogue-gated " + formatLoudness (currentResult.dialogueGatedLufs),
-                        area.reduced (10, 4), juce::Justification::bottomRight);
+                        area.reduced (16, 8), juce::Justification::bottomRight);
         }
     }
 
@@ -737,85 +754,142 @@ namespace qc
         if (! dragHighlight)
             return;
 
-        g.setColour (juce::Colour (0xff4fa3ff).withAlpha (0.7f));
-        g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (3.0f), 8.0f, 2.0f);
+        const auto bounds = getLocalBounds().toFloat().reduced (6.0f);
+
+        g.setColour (glass::colour::accent.withAlpha (0.10f));
+        g.fillRoundedRectangle (bounds, glass::metrics::panelRadius + 6.0f);
+
+        g.setColour (glass::colour::accent.withAlpha (0.75f));
+        g.drawRoundedRectangle (bounds, glass::metrics::panelRadius + 6.0f, 1.6f);
+    }
+
+    void MainComponent::paintHeader (juce::Graphics& g)
+    {
+        auto bar = getLocalBounds().reduced (kEdge).removeFromTop (kTopBarHeight).toFloat();
+
+        glass::paintPanelShadow (g, bar);
+        glass::paintPanel (g, bar, glass::Depth::raised, 16.0f);
+
+        // Wordmark. Two weights in one line reads as a mark rather than as a heading.
+        const auto textArea = bar.withTrimmedLeft (20.0f);
+
+        g.setColour (glass::colour::text (0.95f));
+        g.setFont (glass::font (16.0f, true));
+        g.drawText ("Loudness", textArea.withWidth (72.0f), juce::Justification::centredLeft);
+
+        g.setColour (glass::colour::accent.withAlpha (0.95f));
+        g.setFont (glass::font (16.0f));
+        g.drawText ("QC", textArea.withTrimmedLeft (74.0f).withWidth (40.0f),
+                    juce::Justification::centredLeft);
+
+        g.setColour (juce::Colours::white.withAlpha (0.09f));
+        g.fillRect (bar.getX() + 128.0f, bar.getY() + 16.0f, 1.0f, bar.getHeight() - 32.0f);
     }
 
     void MainComponent::paint (juce::Graphics& g)
     {
-        g.fillAll (kBackground);
+        if (backdrop.isNull() || backdrop.getWidth() != getWidth() || backdrop.getHeight() != getHeight())
+            backdrop = glass::renderBackdrop (getWidth(), getHeight());
 
-        auto bounds = getLocalBounds().reduced (kGap);
+        g.drawImageAt (backdrop, 0, 0);
+
+        paintHeader (g);
+
+        auto bounds = getLocalBounds().reduced (kEdge);
         bounds.removeFromTop (kTopBarHeight + kGap);
 
         auto right = bounds.withTrimmedLeft (kTargetColumnWidth + kGap);
         paintSummary (g, right.removeFromTop (kSummaryHeight));
 
-        g.setColour (kPanel);
-        g.fillRoundedRectangle (bounds.removeFromLeft (kTargetColumnWidth).toFloat(), 6.0f);
+        const auto targetPanel = bounds.removeFromLeft (kTargetColumnWidth).toFloat();
+        glass::paintPanelShadow (g, targetPanel, glass::metrics::panelRadius, 0.7f);
+        glass::paintPanel (g, targetPanel, glass::Depth::recessed);
 
-        g.setColour (kMutedText);
-        g.setFont (juce::FontOptions (11.0f, juce::Font::bold));
+        g.setColour (glass::colour::secondary (0.52f));
+        g.setFont (glass::font (10.5f, true));
         g.drawText ("TARGETS",
-                    juce::Rectangle<int> (kGap + 12, kTopBarHeight + kGap * 2, 160, 18),
+                    targetPanel.toNearestInt().reduced (18, 0).withHeight (34),
                     juce::Justification::centredLeft);
+
+        // The well sits behind whatever the verdict viewport actually occupies rather
+        // than behind a separately computed rectangle, so the two cannot drift apart.
+        if (! verdictViewport.getBounds().isEmpty())
+            glass::paintPanel (g, verdictViewport.getBounds().expanded (2).toFloat(),
+                               glass::Depth::recessed);
 
         paintDropHighlight (g);
     }
 
     void MainComponent::resized()
     {
-        auto bounds = getLocalBounds().reduced (kGap);
+        auto bounds = getLocalBounds().reduced (kEdge);
 
         auto topBar = bounds.removeFromTop (kTopBarHeight);
-        openButton.setBounds (topBar.removeFromLeft (110).reduced (0, 8));
-        topBar.removeFromLeft (kGap);
-        stemButton.setBounds (topBar.removeFromLeft (120).reduced (0, 8));
-        topBar.removeFromLeft (4);
-        clearStemButton.setBounds (topBar.removeFromLeft (60).reduced (0, 8));
-        topBar.removeFromLeft (kGap);
-        exportJsonButton.setBounds (topBar.removeFromLeft (78).reduced (0, 8));
-        topBar.removeFromLeft (4);
-        exportPdfButton.setBounds (topBar.removeFromLeft (72).reduced (0, 8));
-        topBar.removeFromLeft (kGap);
-        recurseToggle.setBounds (topBar.removeFromLeft (150).reduced (0, 8));
+        topBar.removeFromLeft (146); // Wordmark and its divider.
+
+        const auto buttonRow = [&topBar] (int width)
+        {
+            auto slot = topBar.removeFromLeft (width).reduced (0, 15);
+            topBar.removeFromLeft (6);
+            return slot;
+        };
+
+        openButton.setBounds (buttonRow (86));
+        stemButton.setBounds (buttonRow (84));
+        clearStemButton.setBounds (buttonRow (58));
+        topBar.removeFromLeft (8);
+        exportJsonButton.setBounds (buttonRow (74));
+        exportPdfButton.setBounds (buttonRow (68));
+        topBar.removeFromLeft (8);
+        recurseToggle.setBounds (topBar.removeFromLeft (152).reduced (0, 15));
         topBar.removeFromLeft (kGap);
 
-        auto labels = topBar.removeFromLeft (juce::jmax (140, topBar.getWidth() / 3));
-        fileLabel.setBounds (labels.removeFromTop (labels.getHeight() / 2));
-        stemLabel.setBounds (labels);
+        auto labels = topBar.removeFromLeft (juce::jmax (150, topBar.getWidth() / 3));
+        fileLabel.setBounds (labels.removeFromTop (labels.getHeight() / 2).reduced (0, 2));
+        stemLabel.setBounds (labels.reduced (0, 2));
 
-        statusLabel.setBounds (topBar);
+        statusLabel.setBounds (topBar.withTrimmedRight (18));
 
         bounds.removeFromTop (kGap);
 
         auto targetColumn = bounds.removeFromLeft (kTargetColumnWidth);
-        targetColumn.removeFromTop (28);
-        targetViewport.setBounds (targetColumn.reduced (8, 4));
+        targetColumn.removeFromTop (34);
+        targetViewport.setBounds (targetColumn.reduced (12, 8));
 
-        int y = 4;
+        int y = 2;
         for (auto* toggle : targetToggles)
         {
-            toggle->setBounds (4, y, targetHolder.getWidth() - 8, 24);
-            y += 26;
+            toggle->setBounds (6, y, targetHolder.getWidth() - 12, 28);
+            y += 30;
         }
         targetHolder.setSize (juce::jmax (10, targetViewport.getWidth() - 10), y + 4);
 
         bounds.removeFromLeft (kGap);
 
         bounds.removeFromTop (kSummaryHeight + kGap);
-        graph.setBounds (bounds.removeFromBottom (kGraphHeight));
-        bounds.removeFromBottom (kGap);
 
         if (batchMode)
         {
-            // The table gets the larger share: in a batch the list is the primary view
-            // and the detail below answers "why did that one fail".
-            batchTable.setBounds (bounds.removeFromTop (bounds.getHeight() * 3 / 5));
+            // The table is the primary view in a batch; the detail below answers "why
+            // did that one fail".
+            batchTable.setBounds (bounds.removeFromTop (bounds.getHeight() * 42 / 100));
             bounds.removeFromTop (kGap);
         }
 
-        verdictViewport.setBounds (bounds);
+        // The verdict list takes what its content needs and the graph takes the rest,
+        // rather than the graph taking a fixed slice and leaving a dead band in the
+        // middle whenever only one or two targets are selected.
+        verdictPanel.setSize (juce::jmax (10, bounds.getWidth() - 12), verdictPanel.getRequiredHeight());
+
+        const int wanted = verdictPanel.getRequiredHeight() + 10;
+        const int available = bounds.getHeight() - kMinimumGraphHeight - kGap;
+        const int verdictHeight = juce::jlimit (kMinimumVerdictHeight,
+                                                juce::jmax (kMinimumVerdictHeight, available),
+                                                wanted);
+
+        verdictViewport.setBounds (bounds.removeFromTop (verdictHeight).reduced (2));
+        bounds.removeFromTop (kGap);
+        graph.setBounds (bounds);
         verdictPanel.setSize (juce::jmax (10, verdictViewport.getWidth() - 8),
                               verdictPanel.getRequiredHeight());
     }

@@ -1,5 +1,6 @@
 #include "BatchTable.h"
 
+#include "GlassStyle.h"
 #include "VerdictPanel.h"
 
 #include <algorithm>
@@ -42,8 +43,8 @@ namespace qc
     BatchTable::BatchTable()
     {
         table.setModel (this);
-        table.setColour (juce::ListBox::backgroundColourId, juce::Colour (0xff171c24));
-        table.setRowHeight (24);
+        table.setColour (juce::ListBox::backgroundColourId, juce::Colours::transparentBlack);
+        table.setRowHeight (28);
         table.getHeader().setStretchToFitActive (true);
         addAndMakeVisible (table);
 
@@ -162,6 +163,18 @@ namespace qc
         return rowOrder[static_cast<std::size_t> (row)];
     }
 
+    void BatchTable::selectEntry (int entryIndex)
+    {
+        for (std::size_t row = 0; row < rowOrder.size(); ++row)
+        {
+            if (rowOrder[row] == entryIndex)
+            {
+                table.selectRow (static_cast<int> (row));
+                return;
+            }
+        }
+    }
+
     bool BatchTable::isStatusColumn (int columnId) const
     {
         return columnId == statusColumn || columnId >= firstTargetColumn;
@@ -227,12 +240,21 @@ namespace qc
     void BatchTable::paintRowBackground (juce::Graphics& g, int rowNumber, int width, int height,
                                          bool rowIsSelected)
     {
-        juce::ignoreUnused (width, height);
+        const auto bounds = juce::Rectangle<float> (0.0f, 0.0f, static_cast<float> (width),
+                                                    static_cast<float> (height));
 
         if (rowIsSelected)
-            g.fillAll (juce::Colour (0xff2a3442));
+        {
+            // The selected row is the one piece of foreground glass in the table.
+            glass::paintPanel (g, bounds.reduced (3.0f, 1.5f), glass::Depth::floating, 8.0f);
+            g.setColour (glass::colour::accent.withAlpha (0.16f));
+            g.fillRoundedRectangle (bounds.reduced (3.0f, 1.5f), 8.0f);
+        }
         else if (rowNumber % 2 != 0)
-            g.fillAll (juce::Colour (0xff1b212a));
+        {
+            g.setColour (juce::Colours::white.withAlpha (0.025f));
+            g.fillRoundedRectangle (bounds.reduced (3.0f, 1.5f), 8.0f);
+        }
     }
 
     void BatchTable::paintCell (juce::Graphics& g, int rowNumber, int columnId, int width, int height,
@@ -252,13 +274,13 @@ namespace qc
         {
             // The reason belongs on the row, not in a tooltip: a folder of ninety files
             // with three failures should say why on screen.
-            g.setColour (juce::Colours::white.withAlpha (0.85f));
-            g.setFont (juce::FontOptions (12.5f));
+            g.setColour (glass::colour::text (0.88f));
+            g.setFont (glass::font (12.5f));
             g.drawText (entry->file.getFileName(), area.removeFromLeft (area.getWidth() / 2),
                         juce::Justification::centredLeft, true);
 
             g.setColour (VerdictPanel::getStatusColour (Status::fail).withAlpha (0.85f));
-            g.setFont (juce::FontOptions (11.0f));
+            g.setFont (glass::font (11.0f));
             g.drawText (entry->errorMessage, area, juce::Justification::centredLeft, true);
             return;
         }
@@ -267,7 +289,7 @@ namespace qc
         {
             const auto status = getStatusForColumn (*entry, columnId);
             g.setColour (VerdictPanel::getStatusColour (status));
-            g.setFont (juce::FontOptions (11.5f, juce::Font::bold));
+            g.setFont (glass::font (11.5f, true));
             g.drawText (text, area, juce::Justification::centredLeft, true);
             return;
         }
@@ -275,13 +297,13 @@ namespace qc
         if (columnId == statusColumn && entry->state == BatchEntry::State::failed)
         {
             g.setColour (VerdictPanel::getStatusColour (Status::fail));
-            g.setFont (juce::FontOptions (11.5f, juce::Font::bold));
+            g.setFont (glass::font (11.5f, true));
             g.drawText (text, area, juce::Justification::centredLeft, true);
             return;
         }
 
-        g.setColour (juce::Colours::white.withAlpha (columnId == fileColumn ? 0.88f : 0.72f));
-        g.setFont (juce::FontOptions (12.5f));
+        g.setColour (glass::colour::text (columnId == fileColumn ? 0.9f : 0.7f));
+        g.setFont (glass::font (12.5f));
         g.drawText (text, area, juce::Justification::centredLeft, true);
     }
 
@@ -355,8 +377,13 @@ namespace qc
             onSelectionChanged (getSelectedEntryIndex());
     }
 
+    void BatchTable::paint (juce::Graphics& g)
+    {
+        glass::paintPanel (g, getLocalBounds().toFloat(), glass::Depth::raised, 14.0f);
+    }
+
     void BatchTable::resized()
     {
-        table.setBounds (getLocalBounds());
+        table.setBounds (getLocalBounds().reduced (6, 8));
     }
 }
