@@ -37,6 +37,15 @@ namespace qc
         Status status { Status::pass };
         std::vector<CheckResult> checks;
 
+        /** The specification this was judged against, carried through so a report can
+            state the numbers rather than making the reader look them up - and so that
+            lastVerified travels with the verdict. A verdict against an unverified spec
+            is worth less than no verdict, and the report must be able to say so.
+        */
+        double targetIntegratedLufs { 0.0 };
+        double targetMaxTruePeakDb { 0.0 };
+        std::string targetLastVerified;
+
         /** Empty when the target passes. Otherwise one line per problem, describing the
             change that would fix it.
         */

@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 
+#include "../Report/JsonReport.h"
 #include "../Verdict/VerdictEngine.h"
 
 namespace qc
@@ -59,6 +60,10 @@ namespace qc
         addAndMakeVisible (clearStemButton);
         clearStemButton.onClick = [this] { clearDialogueStem(); };
         clearStemButton.setEnabled (false);
+
+        addAndMakeVisible (exportButton);
+        exportButton.onClick = [this] { exportJson(); };
+        exportButton.setEnabled (false);
 
         fileLabel.setText ("Drop an audio file anywhere in this window", juce::dontSendNotification);
         fileLabel.setColour (juce::Label::textColourId, kMutedText);
@@ -207,6 +212,40 @@ namespace qc
         repaint();
     }
 
+    void MainComponent::exportJson()
+    {
+        if (! hasResult)
+            return;
+
+        const auto suggested = currentFile.getParentDirectory()
+                                          .getChildFile (currentFile.getFileNameWithoutExtension() + ".json");
+
+        fileChooser = std::make_unique<juce::FileChooser> ("Save the analysis as JSON", suggested, "*.json");
+
+        fileChooser->launchAsync (juce::FileBrowserComponent::saveMode
+                                      | juce::FileBrowserComponent::canSelectFiles
+                                      | juce::FileBrowserComponent::warnAboutOverwriting,
+                                  [this] (const juce::FileChooser& chooser)
+                                  {
+                                      const auto destination = chooser.getResult();
+
+                                      if (destination == juce::File())
+                                          return;
+
+                                      const auto json = writeJsonReport (currentResult,
+                                                                         evaluate (currentResult, getSelectedTargets()));
+
+                                      // A failed write is silent otherwise, and the user
+                                      // would walk away believing the report exists.
+                                      if (destination.replaceWithText (json))
+                                          statusLabel.setText ("Saved " + destination.getFileName(),
+                                                               juce::dontSendNotification);
+                                      else
+                                          statusLabel.setText ("Could not write " + destination.getFullPathName(),
+                                                               juce::dontSendNotification);
+                                  });
+    }
+
     void MainComponent::openFile (const juce::File& file)
     {
         startAnalysis (file);
@@ -278,6 +317,7 @@ namespace qc
         fileLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.9f));
 
         hasResult = false;
+        exportButton.setEnabled (false);
         verdictPanel.clear();
         graph.clearResult();
 
@@ -320,6 +360,7 @@ namespace qc
 
         currentResult = std::move (outcome.result);
         hasResult = true;
+        exportButton.setEnabled (true);
 
         juce::String status = juce::String (currentResult.source.formatName) + " - "
                             + juce::String (currentResult.source.sampleRate / 1000.0, 1) + " kHz - "
@@ -467,6 +508,8 @@ namespace qc
         stemButton.setBounds (topBar.removeFromLeft (120).reduced (0, 8));
         topBar.removeFromLeft (4);
         clearStemButton.setBounds (topBar.removeFromLeft (60).reduced (0, 8));
+        topBar.removeFromLeft (kGap);
+        exportButton.setBounds (topBar.removeFromLeft (120).reduced (0, 8));
         topBar.removeFromLeft (kGap);
 
         auto labels = topBar.removeFromLeft (juce::jmax (200, topBar.getWidth() / 2));

@@ -2,6 +2,7 @@ add_executable(qc_engine_tests
     main.cpp
     EngineTests.cpp
     VerdictTests.cpp
+    JsonTests.cpp
 )
 
 target_link_libraries(qc_engine_tests PRIVATE qc_engine)

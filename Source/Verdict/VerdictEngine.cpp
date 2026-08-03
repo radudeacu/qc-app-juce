@@ -85,6 +85,9 @@ namespace qc
         TargetVerdict verdict;
         verdict.targetId = target.id;
         verdict.targetName = target.name;
+        verdict.targetIntegratedLufs = target.integratedLufs;
+        verdict.targetMaxTruePeakDb = target.maxTruePeakDb;
+        verdict.targetLastVerified = target.lastVerified;
 
         // Which loudness figure applies depends on how the target gates. A dialogue-gated
         // spec judged against programme loudness would be a different measurement wearing

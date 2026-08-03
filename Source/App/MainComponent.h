@@ -44,6 +44,7 @@ namespace qc
         void chooseProgrammeFile();
         void chooseDialogueStem();
         void clearDialogueStem();
+        void exportJson();
 
         std::vector<Target> getSelectedTargets() const;
         const Target* getPrimaryTarget() const;
@@ -61,6 +62,7 @@ namespace qc
         juce::TextButton openButton { "Open file..." };
         juce::TextButton stemButton { "Dialogue stem..." };
         juce::TextButton clearStemButton { "Clear" };
+        juce::TextButton exportButton { "Export JSON..." };
         juce::Label fileLabel;
         juce::Label stemLabel;
         juce::Label statusLabel;
